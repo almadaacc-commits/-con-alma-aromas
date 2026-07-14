@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Config {
+  id              String @id @default(cuid())
+  key             String @unique
+  value           Float
+  updatedAt       DateTime @updatedAt
+}
+
+model Venta {
+  id              String   @id @default(cuid())
+  producto        String   // "sahumerio" | "difusor"
+  tipo            String   // "suelto" | "pack8" | "unidad"
+  variante        String
+  cantidad        Int
+  precioUnitario  Float
+  total           Float
+  costoUnitario   Float
+  ganancia        Float
+  manoDeObra      Float
+  canal           String
+  createdAt       DateTime @default(now())
+}
+
+model Compra {
+  id              String   @id @default(cuid())
+  proveedor       String
+  insumo          String
+  cantidad        Float
+  unidadMedida    String   // "uds", "kg", "lts", "grs"
+  costoUnitario   Float
+  total           Float
+  fechaEntrega    DateTime?
+  observaciones   String?
+  createdAt       DateTime @default(now())
+}
+
+model Retiro {
+  id              String   @id @default(cuid())
+  quien           String
+  tipo            String   // "mo", "ganancia", "ambos"
+  monto           Float
+  createdAt       DateTime @default(now())
+}
+
+model Inventario {
+  id              String   @id @default(cuid())
+  nombre          String
+  tipo            String   // "insumo" | "producto"
+  variante        String?
+  stockActual     Float
+  stockMinimo     Float
+  unidadMedida    String
+  consumoDiario   Float
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,141 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-terra: #D4521A;
+  --color-terra-light: #F07040;
+  --color-terra-soft: #FF9468;
+  --color-terra-glow: rgba(212, 82, 26, 0.15);
+  --color-alma-bg: #0C0805;
+  --color-alma-surface: #15100A;
+  --color-alma-card: #1E1410;
+  --color-alma-border: #2E1E0F;
+  --color-alma-t1: #F5EDE4;
+  --color-alma-t2: #9A7B68;
+  --color-alma-t3: #5C3D2A;
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: #0C0805;
+  --foreground: #F5EDE4;
+  --card: #1E1410;
+  --card-foreground: #F5EDE4;
+  --popover: #1E1410;
+  --popover-foreground: #F5EDE4;
+  --primary: #D4521A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #15100A;
+  --secondary-foreground: #F5EDE4;
+  --muted: #15100A;
+  --muted-foreground: #9A7B68;
+  --accent: #D4521A;
+  --accent-foreground: #FFFFFF;
+  --destructive: #F87171;
+  --border: #2E1E0F;
+  --input: #2E1E0F;
+  --ring: #D4521A;
+  --chart-1: #D4521A;
+  --chart-2: #F07040;
+  --chart-3: #FF9468;
+  --chart-4: #4ADE80;
+  --chart-5: #60A5FA;
+  --sidebar: #15100A;
+  --sidebar-foreground: #F5EDE4;
+  --sidebar-primary: #D4521A;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1E1410;
+  --sidebar-accent-foreground: #F5EDE4;
+  --sidebar-border: #2E1E0F;
+  --sidebar-ring: #D4521A;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2E1E0F; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3E2E1F; }
+
+/* Glow effect */
+.terra-glow {
+  box-shadow: 0 0 40px rgba(212, 82, 26, 0.15), 0 0 80px rgba(212, 82, 26, 0.05);
+}
+
+.terra-glow-sm {
+  box-shadow: 0 4px 20px rgba(212, 82, 26, 0.25);
+}
+
+/* Gradient text */
+.text-terra-gradient {
+  background: linear-gradient(135deg, #F07040 0%, #FF9468 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Pulse animation for alerts */
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(248, 113, 113, 0); }
+}
+.alert-pulse { animation: pulse-red 2s infinite; }
+
+/* Smooth transitions */
+.transition-smooth { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Recharts custom */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #2E1E0F;
+}
+.recharts-text { fill: #5C3D2A !important; font-size: 11px !important; }

@@ -1,0 +1,1136 @@
+     1→     1→import { useState } from "react";
+     2→     2→
+     3→     3→// ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
+     4→     4→const T = {
+     5→     5→  // Superficie
+     6→     6→  bg:      "#0F0A07",   // negro cálido profundo
+     7→     7→  surface: "#1A1008",   // superficie elevada
+     8→     8→  card:    "#231508",   // card
+     9→     9→  line:    "#2E1E0F",   // bordes sutiles
+    10→    10→
+    11→    11→  // Marca
+    12→    12→  terra:   "#D4521A",   // terracota principal
+    13→    13→  terra2:  "#F07040",   // terracota claro
+    14→    14→  terra3:  "#FF9468",   // terracota suave
+    15→    15→  glow:    "rgba(212,82,26,0.15)",
+    16→    16→
+    17→    17→  // Texto
+    18→    18→  t1:      "#F5EDE4",   // texto primario
+    19→    19→  t2:      "#9A7B68",   // texto secundario
+    20→    20→  t3:      "#5C3D2A",   // texto terciario
+    21→    21→
+    22→    22→  // Semáforo
+    23→    23→  green:   "#4ADE80",
+    24→    24→  greenBg: "rgba(74,222,128,0.08)",
+    25→    25→  yellow:  "#FBBF24",
+    26→    26→  yellowBg:"rgba(251,191,36,0.08)",
+    27→    27→  red:     "#F87171",
+    28→    28→  redBg:   "rgba(248,113,113,0.08)",
+    29→    29→
+    30→    30→  // Utilidad
+    31→    31→  blue:    "#60A5FA",
+    32→    32→  blueBg:  "rgba(96,165,250,0.08)",
+    33→    33→  white:   "#FFFFFF",
+    34→    34→};
+    35→    35→
+    36→    36→// ── PRECIOS EDITABLES (estado global simulado) ─────────────────────────────
+    37→    37→const PRECIOS_INIT = {
+    38→    38→  sahumerio_venta:  400,
+    39→    39→  pack8_venta:      2800,
+    40→    40→  difusor_venta:    1200,
+    41→    41→  sahumerio_costo:  375,
+    42→    42→  difusor_costo:    320,
+    43→    43→  mo_sahumerio:     175,
+    44→    44→  mo_difusor:       0,
+    45→    45→};
+    46→    46→
+    47→    47→// ── PRODUCTOS ────────────────────────────────────────────────────────────────
+    48→    48→const VARIANTES_SAH = [
+    49→    49→  "Flores blancas","Fresias","Sándalo dulce","Vainilla","Vainilla coco",
+    50→    50→  "Frutos rojos","Fuera de hora","Naranja pimienta","Nag champa","Mirra",
+    51→    51→  "Madera","Patchuli","Reina de la noche","Manantial herbal","Cher",
+    52→    52→  "Caléndula","Nardo","Citronela","Cítrico zen","Jazmín","Tilo",
+    53→    53→];
+    54→    54→const VARIANTES_DIF = ["Cher","Fuera de hora","Madera"];
+    55→    55→const CANALES = [
+    56→    56→  "Feria","Instagram / Domicilio",
+    57→    57→  "Punto estratégico","Mayorista pack","Mayorista granel",
+    58→    58→];
+    59→    59→
+    60→    60→// ── DATOS DEMO ───────────────────────────────────────────────────────────────
+    61→    61→const DEMO = {
+    62→    62→  mes: "Julio 2025",
+    63→    63→  facturacion: 1284650,
+    64→    64→  udsSah: 1280,
+    65→    65→  udsDif: 260,
+    66→    66→  aromaTop: "Vainilla",
+    67→    67→  canalTop: "Feria",
+    68→    68→  stockAlertas: [
+    69→    69→    { n:"Esencia Vainilla",   dias:1.8,  s:"red"    },
+    70→    70→    { n:"Bolsa kraft 8x28",   dias:1.4,  s:"red"    },
+    71→    71→    { n:"Varillas de álamo",  dias:5.7,  s:"red"    },
+    72→    72→    { n:"Alcohol de cereal",  dias:7.1,  s:"red"    },
+    73→    73→    { n:"Harina de madera",   dias:14.3, s:"yellow" },
+    74→    74→    { n:"Goma guar",          dias:23.8, s:"green"  },
+    75→    75→  ],
+    76→    76→  canales: [
+    77→    77→    { label:"Feria",               pct:58, monto:744897 },
+    78→    78→    { label:"Instagram",           pct:24, monto:308316 },
+    79→    79→    { label:"Punto estratégico",   pct:11, monto:141312 },
+    80→    80→    { label:"Mayorista",           pct:7,  monto:90125  },
+    81→    81→  ],
+    82→    82→};
+    83→    83→
+    84→    84→// ── HELPERS ──────────────────────────────────────────────────────────────────
+    85→    85→const $ = (n) => new Intl.NumberFormat("es-AR",{
+    86→    86→  style:"currency",currency:"ARS",maximumFractionDigits:0,
+    87→    87→}).format(n);
+    88→    88→
+    89→    89→const pct = (a,b) => b>0 ? ((a/b)*100).toFixed(0)+"%" : "—";
+    90→    90→
+    91→    91→// ── COMPONENTES ATÓMICOS ─────────────────────────────────────────────────────
+    92→    92→
+    93→    93→// Píldora de estado
+    94→    94→const Dot = ({ s }) => {
+    95→    95→  const map = { red:T.red, yellow:T.yellow, green:T.green };
+    96→    96→  return <span style={{
+    97→    97→    display:"inline-block", width:6, height:6,
+    98→    98→    borderRadius:"50%", background:map[s],
+    99→    99→    boxShadow:`0 0 6px ${map[s]}`,
+   100→   100→  }}/>;
+   101→   101→};
+   102→   102→
+   103→   103→// Separador
+   104→   104→const Sep = () => <div style={{ height:1, background:T.line, margin:"0" }} />;
+   105→   105→
+   106→   106→// Label de sección
+   107→   107→const Label = ({ children, style={} }) => (
+   108→   108→  <div style={{
+   109→   109→    fontSize:10, fontWeight:700, letterSpacing:2,
+   110→   110→    color:T.t3, marginBottom:12, ...style,
+   111→   111→  }}>{children}</div>
+   112→   112→);
+   113→   113→
+   114→   114→// Card base
+   115→   115→const Card = ({ children, style={}, onClick }) => (
+   116→   116→  <div onClick={onClick} style={{
+   117→   117→    background:T.card,
+   118→   118→    border:`1px solid ${T.line}`,
+   119→   119→    borderRadius:16,
+   120→   120→    overflow:"hidden",
+   121→   121→    ...style,
+   122→   122→    cursor: onClick ? "pointer" : "default",
+   123→   123→  }}>{children}</div>
+   124→   124→);
+   125→   125→
+   126→   126→// Botón primario
+   127→   127→const BtnPrimary = ({ children, onClick, disabled, style={} }) => (
+   128→   128→  <button onClick={onClick} disabled={disabled} style={{
+   129→   129→    width:"100%", padding:"16px",
+   130→   130→    background: disabled
+   131→   131→      ? T.line
+   132→   132→      : `linear-gradient(135deg, ${T.terra} 0%, ${T.terra2} 100%)`,
+   133→   133→    color: disabled ? T.t3 : T.white,
+   134→   134→    border:"none", borderRadius:14,
+   135→   135→    fontSize:15, fontWeight:700, cursor: disabled ? "default" : "pointer",
+   136→   136→    letterSpacing:0.3,
+   137→   137→    boxShadow: disabled ? "none" : `0 4px 24px rgba(212,82,26,0.35)`,
+   138→   138→    transition:"all 0.2s",
+   139→   139→    ...style,
+   140→   140→  }}>{children}</button>
+   141→   141→);
+   142→   142→
+   143→   143→// Botón ghost
+   144→   144→const BtnGhost = ({ children, onClick, active, style={} }) => (
+   145→   145→  <button onClick={onClick} style={{
+   146→   146→    flex:1, padding:"11px 8px",
+   147→   147→    background: active ? T.terra : "transparent",
+   148→   148→    color: active ? T.white : T.t2,
+   149→   149→    border:`1px solid ${active ? T.terra : T.line}`,
+   150→   150→    borderRadius:10, fontSize:12, fontWeight:700,
+   151→   151→    cursor:"pointer", transition:"all 0.2s",
+   152→   152→    ...style,
+   153→   153→  }}>{children}</button>
+   154→   154→);
+   155→   155→
+   156→   156→// Input minimalista
+   157→   157→const Input = ({ placeholder, value, onChange, type="text", style={} }) => (
+   158→   158→  <input
+   159→   159→    type={type} placeholder={placeholder}
+   160→   160→    value={value} onChange={onChange}
+   161→   161→    style={{
+   162→   162→      width:"100%", background:T.surface,
+   163→   163→      border:`1px solid ${T.line}`, borderRadius:12,
+   164→   164→      padding:"14px 16px", fontSize:14,
+   165→   165→      color:T.t1, fontFamily:"inherit",
+   166→   166→      outline:"none", boxSizing:"border-box",
+   167→   167→      ...style,
+   168→   168→    }}
+   169→   169→  />
+   170→   170→);
+   171→   171→
+   172→   172→// ── PANTALLA: DASHBOARD ───────────────────────────────────────────────────────
+   173→   173→function Dashboard({ onNav, precios }) {
+   174→   174→  const [tab, setTab] = useState("overview");
+   175→   175→
+   176→   176→  const moTotal      = DEMO.udsSah * precios.mo_sahumerio;
+   177→   177→  const costoTotal   = DEMO.udsSah * precios.sahumerio_costo
+   178→   178→                     + DEMO.udsDif * precios.difusor_costo;
+   179→   179→  const gananciaEmp  = DEMO.facturacion - costoTotal;
+   180→   180→  const reinversion  = gananciaEmp * 0.35;
+   181→   181→  const gananciaRet  = gananciaEmp * 0.45;
+   182→   182→  const disponible   = moTotal + gananciaRet;
+   183→   183→
+   184→   184→  return (
+   185→   185→    <div style={{ paddingBottom:88 }}>
+   186→   186→
+   187→   187→      {/* ── HERO ── */}
+   188→   188→      <div style={{ padding:"44px 20px 0", position:"relative" }}>
+   189→   189→        {/* Glow de fondo */}
+   190→   190→        <div style={{
+   191→   191→          position:"absolute", top:0, right:0,
+   192→   192→          width:200, height:200, borderRadius:"50%",
+   193→   193→          background:`radial-gradient(circle, ${T.glow} 0%, transparent 70%)`,
+   194→   194→          pointerEvents:"none",
+   195→   195→        }}/>
+   196→   196→
+   197→   197→        <div style={{ fontSize:11, color:T.t3, letterSpacing:2, marginBottom:6 }}>
+   198→   198→          CON ALMA AROMAS
+   199→   199→        </div>
+   200→   200→        <div style={{ fontSize:28, fontWeight:800, color:T.t1, letterSpacing:-0.5, lineHeight:1.1 }}>
+   201→   201→          {DEMO.mes}
+   202→   202→        </div>
+   203→   203→
+   204→   204→        {/* Número principal */}
+   205→   205→        <div style={{ marginTop:28, marginBottom:8 }}>
+   206→   206→          <div style={{ fontSize:11, color:T.t3, letterSpacing:1.5, marginBottom:4 }}>
+   207→   207→            FACTURACIÓN
+   208→   208→          </div>
+   209→   209→          <div style={{
+   210→   210→            fontSize:44, fontWeight:900, letterSpacing:-2,
+   211→   211→            background:`linear-gradient(135deg, ${T.terra2} 0%, ${T.terra3} 100%)`,
+   212→   212→            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+   213→   213→            lineHeight:1,
+   214→   214→          }}>
+   215→   215→            {$(DEMO.facturacion)}
+   216→   216→          </div>
+   217→   217→          <div style={{ display:"flex", gap:16, marginTop:10, fontSize:12, color:T.t2 }}>
+   218→   218→            <span>🌿 {DEMO.udsSah.toLocaleString("es-AR")} sah</span>
+   219→   219→            <span>🚗 {DEMO.udsDif} dif</span>
+   220→   220→            <span>🏆 {DEMO.aromaTop}</span>
+   221→   221→          </div>
+   222→   222→        </div>
+   223→   223→
+   224→   224→        {/* Tabs */}
+   225→   225→        <div style={{
+   226→   226→          display:"flex", gap:2, marginTop:28,
+   227→   227→          borderBottom:`1px solid ${T.line}`,
+   228→   228→        }}>
+   229→   229→          {[
+   230→   230→            { k:"overview", l:"Resumen"  },
+   231→   231→            { k:"desglose", l:"Desglose" },
+   232→   232→            { k:"stock",    l:"Stock"    },
+   233→   233→          ].map(t => (
+   234→   234→            <button key={t.k} onClick={() => setTab(t.k)} style={{
+   235→   235→              flex:1, background:"none", border:"none",
+   236→   236→              color: tab===t.k ? T.terra2 : T.t3,
+   237→   237→              fontSize:13, fontWeight: tab===t.k ? 700 : 400,
+   238→   238→              padding:"10px 0 12px", cursor:"pointer",
+   239→   239→              borderBottom:`2px solid ${tab===t.k ? T.terra2 : "transparent"}`,
+   240→   240→              transition:"all 0.2s",
+   241→   241→            }}>{t.l}</button>
+   242→   242→          ))}
+   243→   243→        </div>
+   244→   244→      </div>
+   245→   245→
+   246→   246→      {/* ── TAB OVERVIEW ── */}
+   247→   247→      {tab==="overview" && (
+   248→   248→        <div style={{ padding:"20px 20px 0" }}>
+   249→   249→
+   250→   250→          {/* Card disponible */}
+   251→   251→          <div style={{
+   252→   252→            background:`linear-gradient(135deg, ${T.terra} 0%, #8B2A08 100%)`,
+   253→   253→            borderRadius:20, padding:"20px",
+   254→   254→            marginBottom:12,
+   255→   255→            boxShadow:`0 8px 32px rgba(212,82,26,0.3)`,
+   256→   256→            position:"relative", overflow:"hidden",
+   257→   257→          }}>
+   258→   258→            <div style={{
+   259→   259→              position:"absolute", top:-20, right:-20,
+   260→   260→              width:100, height:100, borderRadius:"50%",
+   261→   261→              background:"rgba(255,255,255,0.04)",
+   262→   262→            }}/>
+   263→   263→            <div style={{ fontSize:10, color:"rgba(255,255,255,0.5)", letterSpacing:2, marginBottom:4 }}>
+   264→   264→              DISPONIBLE PARA RETIRAR
+   265→   265→            </div>
+   266→   266→            <div style={{ fontSize:32, fontWeight:900, color:T.white, letterSpacing:-1 }}>
+   267→   267→              {$(disponible)}
+   268→   268→            </div>
+   269→   269→            <div style={{ display:"flex", gap:16, marginTop:10, fontSize:11, color:"rgba(255,255,255,0.6)" }}>
+   270→   270→              <span>🔧 MO {$(moTotal)}</span>
+   271→   271→              <span>💼 Gan. {$(gananciaRet)}</span>
+   272→   272→            </div>
+   273→   273→            <button onClick={() => onNav("retiro")} style={{
+   274→   274→              marginTop:14, background:"rgba(255,255,255,0.15)",
+   275→   275→              border:"1px solid rgba(255,255,255,0.2)",
+   276→   276→              color:T.white, borderRadius:10, padding:"10px 20px",
+   277→   277→              fontSize:12, fontWeight:700, cursor:"pointer",
+   278→   278→              backdropFilter:"blur(4px)",
+   279→   279→            }}>
+   280→   280→              Registrar retiro →
+   281→   281→            </button>
+   282→   282→          </div>
+   283→   283→
+   284→   284→          {/* Grid métricas */}
+   285→   285→          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+   286→   286→            {[
+   287→   287→              { l:"Ganancia empresa", v:$(gananciaEmp),  sub:pct(gananciaEmp,DEMO.facturacion)+" margen" },
+   288→   288→              { l:"Reinversión",      v:$(reinversion),   sub:"35% ganancia" },
+   289→   289→              { l:"Costos directos",  v:$(costoTotal),    sub:pct(costoTotal,DEMO.facturacion)+" factur." },
+   290→   290→              { l:"Mano de obra",     v:$(moTotal),       sub:`${DEMO.udsSah}×$${precios.mo_sahumerio}` },
+   291→   291→            ].map((m,i) => (
+   292→   292→              <Card key={i} style={{ padding:"16px" }}>
+   293→   293→                <div style={{ fontSize:10, color:T.t3, letterSpacing:1, marginBottom:8 }}>{m.l}</div>
+   294→   294→                <div style={{ fontSize:18, fontWeight:800, color:T.t1, letterSpacing:-0.5 }}>{m.v}</div>
+   295→   295→                <div style={{ fontSize:10, color:T.t2, marginTop:4 }}>{m.sub}</div>
+   296→   296→              </Card>
+   297→   297→            ))}
+   298→   298→          </div>
+   299→   299→
+   300→   300→          {/* Canales */}
+   301→   301→          <Label>VENTAS POR CANAL</Label>
+   302→   302→          <Card style={{ marginBottom:12 }}>
+   303→   303→            {DEMO.canales.map((c,i) => (
+   304→   304→              <div key={i}>
+   305→   305→                <div style={{ padding:"14px 16px" }}>
+   306→   306→                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+   307→   307→                    <span style={{ fontSize:13, color:T.t1 }}>{c.label}</span>
+   308→   308→                    <span style={{ fontSize:13, fontWeight:700, color:T.t1 }}>{$(c.monto)}</span>
+   309→   309→                  </div>
+   310→   310→                  <div style={{ height:2, background:T.line, borderRadius:1, overflow:"hidden" }}>
+   311→   311→                    <div style={{
+   312→   312→                      height:"100%", width:`${c.pct}%`,
+   313→   313→                      background:`linear-gradient(90deg,${T.terra} 0%,${T.terra2} 100%)`,
+   314→   314→                      borderRadius:1, transition:"width 0.6s",
+   315→   315→                    }}/>
+   316→   316→                  </div>
+   317→   317→                  <div style={{ fontSize:10, color:T.t3, marginTop:4 }}>{c.pct}%</div>
+   318→   318→                </div>
+   319→   319→                {i<DEMO.canales.length-1 && <Sep/>}
+   320→   320→              </div>
+   321→   321→            ))}
+   322→   322→          </Card>
+   323→   323→        </div>
+   324→   324→      )}
+   325→   325→
+   326→   326→      {/* ── TAB DESGLOSE ── */}
+   327→   327→      {tab==="desglose" && (
+   328→   328→        <div style={{ padding:"20px 20px 0" }}>
+   329→   329→
+   330→   330→          {/* Ingresos */}
+   331→   331→          <Label>INGRESOS</Label>
+   332→   332→          <Card style={{ marginBottom:12 }}>
+   333→   333→            {[
+   334→   334→              { l:`Sahumerios (${DEMO.udsSah} uds × $${precios.sahumerio_venta})`,
+   335→   335→                v:$(DEMO.udsSah*precios.sahumerio_venta) },
+   336→   336→              { l:`Pack x8 incluido en sahumerios`,
+   337→   337→                v:"—" },
+   338→   338→              { l:`Difusores (${DEMO.udsDif} uds × $${precios.difusor_venta})`,
+   339→   339→                v:$(DEMO.udsDif*precios.difusor_venta) },
+   340→   340→            ].map((r,i,arr)=>(
+   341→   341→              <div key={i}>
+   342→   342→                <div style={{ display:"flex", justifyContent:"space-between", padding:"13px 16px", alignItems:"center" }}>
+   343→   343→                  <span style={{ fontSize:12, color:T.t2, flex:1 }}>{r.l}</span>
+   344→   344→                  <span style={{ fontSize:13, fontWeight:600, color:T.t1 }}>{r.v}</span>
+   345→   345→                </div>
+   346→   346→                {i<arr.length-1&&<Sep/>}
+   347→   347→              </div>
+   348→   348→            ))}
+   349→   349→            <div style={{ background:T.surface }}>
+   350→   350→              <Sep/>
+   351→   351→              <div style={{ display:"flex", justifyContent:"space-between", padding:"14px 16px" }}>
+   352→   352→                <span style={{ fontSize:13, fontWeight:700, color:T.terra2 }}>Total facturado</span>
+   353→   353→                <span style={{ fontSize:16, fontWeight:900, color:T.terra2 }}>{$(DEMO.facturacion)}</span>
+   354→   354→              </div>
+   355→   355→            </div>
+   356→   356→          </Card>
+   357→   357→
+   358→   358→          {/* Costos */}
+   359→   359→          <Label>COSTOS DE PRODUCCIÓN</Label>
+   360→   360→          <Card style={{ marginBottom:12 }}>
+   361→   361→            {[
+   362→   362→              { l:"Insumos + packaging sahumerios",
+   363→   363→                v:$(DEMO.udsSah*(precios.sahumerio_costo-precios.mo_sahumerio)),
+   364→   364→                c:T.t1 },
+   365→   365→              { l:"Insumos difusores",
+   366→   366→                v:$(DEMO.udsDif*precios.difusor_costo),
+   367→   367→                c:T.t1 },
+   368→   368→              { l:`Mano de obra (${DEMO.udsSah}×$${precios.mo_sahumerio})`,
+   369→   369→                v:$(moTotal),
+   370→   370→                c:T.blue },
+   371→   371→            ].map((r,i,arr)=>(
+   372→   372→              <div key={i}>
+   373→   373→                <div style={{ display:"flex", justifyContent:"space-between", padding:"13px 16px" }}>
+   374→   374→                  <span style={{ fontSize:12, color:T.t2, flex:1 }}>{r.l}</span>
+   375→   375→                  <span style={{ fontSize:13, fontWeight:600, color:r.c }}>{r.v}</span>
+   376→   376→                </div>
+   377→   377→                {i<arr.length-1&&<Sep/>}
+   378→   378→              </div>
+   379→   379→            ))}
+   380→   380→            <div style={{ background:T.surface }}>
+   381→   381→              <Sep/>
+   382→   382→              <div style={{ display:"flex", justifyContent:"space-between", padding:"14px 16px" }}>
+   383→   383→                <span style={{ fontSize:13, fontWeight:700, color:T.t1 }}>Total costos</span>
+   384→   384→                <span style={{ fontSize:15, fontWeight:800, color:T.t1 }}>{$(costoTotal+moTotal)}</span>
+   385→   385→              </div>
+   386→   386→            </div>
+   387→   387→          </Card>
+   388→   388→
+   389→   389→          {/* Distribución ganancia */}
+   390→   390→          <Label>DISTRIBUCIÓN DE GANANCIA</Label>
+   391→   391→          <Card style={{ marginBottom:12 }}>
+   392→   392→            {[
+   393→   393→              { l:"Reinversión (35%)",      v:$(reinversion),  c:T.terra2,  bar:35 },
+   394→   394→              { l:"Costos indirectos (20%)",v:$(gananciaEmp*0.20), c:T.t2,  bar:20 },
+   395→   395→              { l:"Retiro ganancia (45%)",  v:$(gananciaRet),  c:T.green,   bar:45 },
+   396→   396→            ].map((r,i,arr)=>(
+   397→   397→              <div key={i}>
+   398→   398→                <div style={{ padding:"13px 16px" }}>
+   399→   399→                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+   400→   400→                    <span style={{ fontSize:12, color:T.t2 }}>{r.l}</span>
+   401→   401→                    <span style={{ fontSize:13, fontWeight:700, color:r.c }}>{r.v}</span>
+   402→   402→                  </div>
+   403→   403→                  <div style={{ height:2, background:T.line, borderRadius:1 }}>
+   404→   404→                    <div style={{ width:`${r.bar}%`, height:"100%", background:r.c, borderRadius:1 }}/>
+   405→   405→                  </div>
+   406→   406→                </div>
+   407→   407→                {i<arr.length-1&&<Sep/>}
+   408→   408→              </div>
+   409→   409→            ))}
+   410→   410→          </Card>
+   411→   411→
+   412→   412→          {/* Total retiro */}
+   413→   413→          <div style={{
+   414→   414→            background:`linear-gradient(135deg,${T.terra} 0%,#8B2A08 100%)`,
+   415→   415→            borderRadius:16, padding:"18px 20px",
+   416→   416→            marginBottom:16,
+   417→   417→          }}>
+   418→   418→            <div style={{ fontSize:10, color:"rgba(255,255,255,0.5)", letterSpacing:2, marginBottom:4 }}>
+   419→   419→              TOTAL DISPONIBLE PARA RETIRAR
+   420→   420→            </div>
+   421→   421→            <div style={{ fontSize:32, fontWeight:900, color:T.white, letterSpacing:-1 }}>
+   422→   422→              {$(disponible)}
+   423→   423→            </div>
+   424→   424→            <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", marginTop:6 }}>
+   425→   425→              MO {$(moTotal)} + Ganancia {$(gananciaRet)}
+   426→   426→            </div>
+   427→   427→          </div>
+   428→   428→
+   429→   429→          <BtnPrimary onClick={() => onNav("retiro")}>💸 Registrar retiro</BtnPrimary>
+   430→   430→        </div>
+   431→   431→      )}
+   432→   432→
+   433→   433→      {/* ── TAB STOCK ── */}
+   434→   434→      {tab==="stock" && (
+   435→   435→        <div style={{ padding:"20px 20px 0" }}>
+   436→   436→          <Label>ALERTAS DE INSUMOS</Label>
+   437→   437→          <Card style={{ marginBottom:16 }}>
+   438→   438→            {DEMO.stockAlertas.map((a,i)=>(
+   439→   439→              <div key={i}>
+   440→   440→                <div style={{
+   441→   441→                  display:"flex", alignItems:"center",
+   442→   442→                  justifyContent:"space-between", padding:"14px 16px",
+   443→   443→                }}>
+   444→   444→                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+   445→   445→                    <Dot s={a.s}/>
+   446→   446→                    <div>
+   447→   447→                      <div style={{ fontSize:13, color:T.t1 }}>{a.n}</div>
+   448→   448→                      <div style={{ fontSize:10, color:T.t3, marginTop:1 }}>
+   449→   449→                        {a.dias.toFixed(1)} días restantes
+   450→   450→                      </div>
+   451→   451→                    </div>
+   452→   452→                  </div>
+   453→   453→                  <div style={{
+   454→   454→                    fontSize:10, fontWeight:700, letterSpacing:0.5,
+   455→   455→                    color:T[a.s], padding:"4px 10px",
+   456→   456→                    background:T[a.s+"Bg"], borderRadius:20,
+   457→   457→                  }}>
+   458→   458→                    {a.s==="red"?"URGENTE":a.s==="yellow"?"REPONER":"OK"}
+   459→   459→                  </div>
+   460→   460→                </div>
+   461→   461→                {i<DEMO.stockAlertas.length-1&&<Sep/>}
+   462→   462→              </div>
+   463→   463→            ))}
+   464→   464→          </Card>
+   465→   465→
+   466→   466→          <Label>STOCK POR AROMA</Label>
+   467→   467→          <Card>
+   468→   468→            {[
+   469→   469→              { a:"Vainilla",       uds:45, dias:6.2 },
+   470→   470→              { a:"Flores blancas", uds:30, dias:4.1 },
+   471→   471→              { a:"Fresias",        uds:18, dias:2.5 },
+   472→   472→              { a:"Sándalo dulce",  uds:62, dias:8.5 },
+   473→   473→              { a:"Nag champa",     uds:8,  dias:1.1 },
+   474→   474→              { a:"Madera",         uds:55, dias:7.5 },
+   475→   475→            ].map((x,i,arr)=>(
+   476→   476→              <div key={i}>
+   477→   477→                <div style={{ padding:"13px 16px" }}>
+   478→   478→                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+   479→   479→                    <span style={{ fontSize:13, color:T.t1 }}>{x.a}</span>
+   480→   480→                    <span style={{ fontSize:13, fontWeight:700,
+   481→   481→                      color:x.dias<3?T.red:x.dias<7?T.yellow:T.green }}>
+   482→   482→                      {x.uds} uds
+   483→   483→                    </span>
+   484→   484→                  </div>
+   485→   485→                  <div style={{ height:2, background:T.line, borderRadius:1 }}>
+   486→   486→                    <div style={{
+   487→   487→                      width:`${Math.min(x.dias/15*100,100)}%`, height:"100%",
+   488→   488→                      background:x.dias<3?T.red:x.dias<7?T.yellow:T.green,
+   489→   489→                      borderRadius:1,
+   490→   490→                    }}/>
+   491→   491→                  </div>
+   492→   492→                  <div style={{ fontSize:10, color:T.t3, marginTop:4 }}>
+   493→   493→                    ~{x.dias.toFixed(1)} días
+   494→   494→                  </div>
+   495→   495→                </div>
+   496→   496→                {i<arr.length-1&&<Sep/>}
+   497→   497→              </div>
+   498→   498→            ))}
+   499→   499→          </Card>
+   500→   500→        </div>
+   501→   501→      )}
+   502→   502→    </div>
+   503→   503→  );
+   504→   504→}
+   505→   505→
+   506→   506→// ── PANTALLA: REGISTRAR VENTA ─────────────────────────────────────────────────
+   507→   507→function RegistrarVenta({ onBack, precios }) {
+   508→   508→  const [step, setStep]       = useState(1);
+   509→   509→  const [prodKey, setProdKey] = useState(null);
+   510→   510→  const [variante, setVariante] = useState(null);
+   511→   511→  const [esPack, setEsPack]   = useState(false);
+   512→   512→  const [cantidad, setCantidad] = useState(1);
+   513→   513→  const [canal, setCanal]     = useState(null);
+   514→   514→
+   515→   515→  const isSah   = prodKey === "sah";
+   516→   516→  const precioU = prodKey === "sah"
+   517→   517→    ? (esPack ? precios.pack8_venta : precios.sahumerio_venta)
+   518→   518→    : precios.difusor_venta;
+   519→   519→  const costoU  = prodKey === "sah" ? precios.sahumerio_costo : precios.difusor_costo;
+   520→   520→  const moU     = prodKey === "sah" ? precios.mo_sahumerio : 0;
+   521→   521→  const total   = cantidad * precioU;
+   522→   522→  const ganancia = total - cantidad * costoU;
+   523→   523→  const moVenta  = cantidad * moU;
+   524→   524→
+   525→   525→  if (step===5) return (
+   526→   526→    <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+   527→   527→      justifyContent:"center", minHeight:"85vh", padding:32, textAlign:"center",
+   528→   528→      background:T.bg }}>
+   529→   529→      <div style={{
+   530→   530→        width:72, height:72, borderRadius:"50%",
+   531→   531→        background:`linear-gradient(135deg,${T.terra} 0%,${T.terra2} 100%)`,
+   532→   532→        display:"flex", alignItems:"center", justifyContent:"center",
+   533→   533→        fontSize:32, marginBottom:20,
+   534→   534→        boxShadow:`0 8px 32px rgba(212,82,26,0.4)`,
+   535→   535→      }}>✓</div>
+   536→   536→      <div style={{ fontSize:22, fontWeight:800, color:T.t1, marginBottom:6 }}>
+   537→   537→        Venta registrada
+   538→   538→      </div>
+   539→   539→      <div style={{ fontSize:13, color:T.t2, marginBottom:24 }}>
+   540→   540→        {cantidad} × {variante}
+   541→   541→      </div>
+   542→   542→      <Card style={{ width:"100%", marginBottom:24 }}>
+   543→   543→        {[
+   544→   544→          { l:"Total cobrado",    v:$(total),    c:T.terra2 },
+   545→   545→          { l:"Costo materiales", v:$(cantidad*(costoU-moU)), c:T.t1 },
+   546→   546→          ...(isSah?[{ l:"Mano de obra",v:$(moVenta),c:T.blue }]:[]),
+   547→   547→          { l:"Ganancia empresa", v:$(ganancia), c:T.green },
+   548→   548→        ].map((r,i,arr)=>(
+   549→   549→          <div key={i}>
+   550→   550→            <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 16px" }}>
+   551→   551→              <span style={{ fontSize:12, color:T.t2 }}>{r.l}</span>
+   552→   552→              <span style={{ fontSize:13, fontWeight:700, color:r.c }}>{r.v}</span>
+   553→   553→            </div>
+   554→   554→            {i<arr.length-1&&<Sep/>}
+   555→   555→          </div>
+   556→   556→        ))}
+   557→   557→      </Card>
+   558→   558→      <BtnPrimary onClick={onBack}>Volver al inicio</BtnPrimary>
+   559→   559→    </div>
+   560→   560→  );
+   561→   561→
+   562→   562→  return (
+   563→   563→    <div style={{ background:T.bg, minHeight:"100vh", paddingBottom:40 }}>
+   564→   564→      {/* Header */}
+   565→   565→      <div style={{ padding:"44px 20px 20px" }}>
+   566→   566→        <button onClick={onBack} style={{
+   567→   567→          background:"none", border:"none", color:T.t3,
+   568→   568→          fontSize:13, cursor:"pointer", padding:0, marginBottom:16,
+   569→   569→        }}>← Volver</button>
+   570→   570→        <div style={{ fontSize:22, fontWeight:800, color:T.t1 }}>
+   571→   571→          Registrar venta
+   572→   572→        </div>
+   573→   573→        {/* Barra de progreso */}
+   574→   574→        <div style={{ display:"flex", gap:4, marginTop:16 }}>
+   575→   575→          {[1,2,3,4].map(s=>(
+   576→   576→            <div key={s} style={{
+   577→   577→              flex:1, height:2, borderRadius:1,
+   578→   578→              background: s<=step
+   579→   579→                ? `linear-gradient(90deg,${T.terra} 0%,${T.terra2} 100%)`
+   580→   580→                : T.line,
+   581→   581→              transition:"background 0.3s",
+   582→   582→            }}/>
+   583→   583→          ))}
+   584→   584→        </div>
+   585→   585→      </div>
+   586→   586→
+   587→   587→      <div style={{ padding:"0 20px" }}>
+   588→   588→
+   589→   589→        {/* PASO 1 — Producto */}
+   590→   590→        {step===1 && (
+   591→   591→          <div>
+   592→   592→            <Label>¿QUÉ PRODUCTO?</Label>
+   593→   593→            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+   594→   594→              {[
+   595→   595→                { k:"sah", icon:"🌿", nombre:"Sahumerios", desc:`${VARIANTES_SAH.length} fragancias · $${precios.sahumerio_venta}/u` },
+   596→   596→                { k:"dif", icon:"🚗", nombre:"Difusores auto", desc:`${VARIANTES_DIF.length} fragancias · $${precios.difusor_venta}/u` },
+   597→   597→              ].map(p=>(
+   598→   598→                <button key={p.k} onClick={()=>{ setProdKey(p.k); setStep(2); }}
+   599→   599→                  style={{
+   600→   600→                    background:T.card, border:`1px solid ${T.line}`,
+   601→   601→                    borderRadius:16, padding:"18px 20px",
+   602→   602→                    textAlign:"left", cursor:"pointer",
+   603→   603→                    display:"flex", alignItems:"center", gap:14,
+   604→   604→                    transition:"border-color 0.2s",
+   605→   605→                  }}
+   606→   606→                  onMouseEnter={e=>e.currentTarget.style.borderColor=T.terra}
+   607→   607→                  onMouseLeave={e=>e.currentTarget.style.borderColor=T.line}
+   608→   608→                >
+   609→   609→                  <div style={{
+   610→   610→                    width:48, height:48, borderRadius:12,
+   611→   611→                    background:T.surface, display:"flex",
+   612→   612→                    alignItems:"center", justifyContent:"center", fontSize:24,
+   613→   613→                  }}>{p.icon}</div>
+   614→   614→                  <div>
+   615→   615→                    <div style={{ fontSize:15, fontWeight:700, color:T.t1 }}>{p.nombre}</div>
+   616→   616→                    <div style={{ fontSize:12, color:T.t2, marginTop:2 }}>{p.desc}</div>
+   617→   617→                  </div>
+   618→   618→                </button>
+   619→   619→              ))}
+   620→   620→              {/* Nuevo producto */}
+   621→   621→              <button style={{
+   622→   622→                background:"transparent", border:`1px dashed ${T.line}`,
+   623→   623→                borderRadius:16, padding:"16px 20px",
+   624→   624→                textAlign:"left", cursor:"pointer",
+   625→   625→                display:"flex", alignItems:"center", gap:14, opacity:0.5,
+   626→   626→              }}>
+   627→   627→                <div style={{
+   628→   628→                  width:48, height:48, borderRadius:12, background:T.surface,
+   629→   629→                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20,
+   630→   630→                }}>＋</div>
+   631→   631→                <div>
+   632→   632→                  <div style={{ fontSize:14, fontWeight:700, color:T.t2 }}>Nuevo producto</div>
+   633→   633→                  <div style={{ fontSize:11, color:T.t3 }}>Agregar al catálogo</div>
+   634→   634→                </div>
+   635→   635→              </button>
+   636→   636→            </div>
+   637→   637→          </div>
+   638→   638→        )}
+   639→   639→
+   640→   640→        {/* PASO 2 — Variante + tipo */}
+   641→   641→        {step===2 && (
+   642→   642→          <div>
+   643→   643→            <Label>FRAGANCIA</Label>
+   644→   644→            {/* Tipo pack (solo sahumerios) */}
+   645→   645→            {isSah && (
+   646→   646→              <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+   647→   647→                <BtnGhost active={!esPack} onClick={()=>setEsPack(false)}>
+   648→   648→                  Suelto · ${precios.sahumerio_venta}
+   649→   649→                </BtnGhost>
+   650→   650→                <BtnGhost active={esPack} onClick={()=>setEsPack(true)}>
+   651→   651→                  Pack x8 · ${precios.pack8_venta}
+   652→   652→                </BtnGhost>
+   653→   653→              </div>
+   654→   654→            )}
+   655→   655→            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+   656→   656→              {(isSah ? VARIANTES_SAH : VARIANTES_DIF).map(v=>(
+   657→   657→                <button key={v}
+   658→   658→                  onClick={()=>{ setVariante(v); setStep(3); }}
+   659→   659→                  style={{
+   660→   660→                    background: variante===v ? T.terra : T.card,
+   661→   661→                    color: variante===v ? T.white : T.t1,
+   662→   662→                    border:`1px solid ${variante===v ? T.terra : T.line}`,
+   663→   663→                    borderRadius:10, padding:"11px 8px",
+   664→   664→                    fontSize:12, fontWeight:600, cursor:"pointer",
+   665→   665→                    transition:"all 0.15s",
+   666→   666→                  }}>
+   667→   667→                  {v}
+   668→   668→                </button>
+   669→   669→              ))}
+   670→   670→            </div>
+   671→   671→          </div>
+   672→   672→        )}
+   673→   673→
+   674→   674→        {/* PASO 3 — Cantidad + canal */}
+   675→   675→        {step===3 && (
+   676→   676→          <div>
+   677→   677→            <Label>CANTIDAD</Label>
+   678→   678→            {/* Selector cantidad */}
+   679→   679→            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:20, marginBottom:12 }}>
+   680→   680→              <button onClick={()=>setCantidad(Math.max(1,cantidad-1))} style={{
+   681→   681→                width:48, height:48, borderRadius:24,
+   682→   682→                background:T.surface, border:`1px solid ${T.line}`,
+   683→   683→                color:T.t1, fontSize:24, cursor:"pointer",
+   684→   684→              }}>−</button>
+   685→   685→              <div style={{
+   686→   686→                fontSize:52, fontWeight:900, letterSpacing:-2,
+   687→   687→                background:`linear-gradient(135deg,${T.terra2} 0%,${T.terra3} 100%)`,
+   688→   688→                WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+   689→   689→                minWidth:80, textAlign:"center",
+   690→   690→              }}>{cantidad}</div>
+   691→   691→              <button onClick={()=>setCantidad(cantidad+1)} style={{
+   692→   692→                width:48, height:48, borderRadius:24,
+   693→   693→                background:`linear-gradient(135deg,${T.terra} 0%,${T.terra2} 100%)`,
+   694→   694→                border:"none", color:T.white, fontSize:24, cursor:"pointer",
+   695→   695→                boxShadow:`0 4px 16px rgba(212,82,26,0.3)`,
+   696→   696→              }}>+</button>
+   697→   697→            </div>
+   698→   698→            {/* Atajos */}
+   699→   699→            <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap", marginBottom:20 }}>
+   700→   700→              {[5,10,20,50,100].map(n=>(
+   701→   701→                <button key={n} onClick={()=>setCantidad(n)} style={{
+   702→   702→                  background: cantidad===n ? T.terra : T.surface,
+   703→   703→                  color: cantidad===n ? T.white : T.t2,
+   704→   704→                  border:`1px solid ${cantidad===n ? T.terra : T.line}`,
+   705→   705→                  borderRadius:20, padding:"6px 14px",
+   706→   706→                  fontSize:12, fontWeight:600, cursor:"pointer",
+   707→   707→                }}>{n}</button>
+   708→   708→              ))}
+   709→   709→            </div>
+   710→   710→
+   711→   711→            {/* Mini desglose en vivo */}
+   712→   712→            <Card style={{ marginBottom:20, padding:"14px 16px" }}>
+   713→   713→              <div style={{ fontSize:10, color:T.t3, letterSpacing:1.5, marginBottom:10 }}>
+   714→   714→                DESGLOSE DE ESTA VENTA
+   715→   715→              </div>
+   716→   716→              {[
+   717→   717→                { l:"Total",          v:$(total),     c:T.terra2 },
+   718→   718→                { l:"Costo material", v:$(cantidad*(costoU-moU)), c:T.t1 },
+   719→   719→                ...(isSah?[{ l:"Mano de obra",v:$(moVenta),c:T.blue }]:[]),
+   720→   720→                { l:"Ganancia",       v:$(ganancia),  c:T.green },
+   721→   721→              ].map((r,i)=>(
+   722→   722→                <div key={i} style={{
+   723→   723→                  display:"flex", justifyContent:"space-between",
+   724→   724→                  marginBottom:6, fontSize:12,
+   725→   725→                }}>
+   726→   726→                  <span style={{ color:T.t2 }}>{r.l}</span>
+   727→   727→                  <span style={{ fontWeight:700, color:r.c }}>{r.v}</span>
+   728→   728→                </div>
+   729→   729→              ))}
+   730→   730→            </Card>
+   731→   731→
+   732→   732→            <Label>CANAL</Label>
+   733→   733→            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+   734→   734→              {CANALES.map(c=>(
+   735→   735→                <button key={c} onClick={()=>setCanal(c)} style={{
+   736→   736→                  background: canal===c ? T.terra : T.card,
+   737→   737→                  color: canal===c ? T.white : T.t1,
+   738→   738→                  border:`1px solid ${canal===c ? T.terra : T.line}`,
+   739→   739→                  borderRadius:12, padding:"13px 16px",
+   740→   740→                  textAlign:"left", fontSize:13, fontWeight:600, cursor:"pointer",
+   741→   741→                  transition:"all 0.15s",
+   742→   742→                }}>{c}</button>
+   743→   743→              ))}
+   744→   744→            </div>
+   745→   745→            <BtnPrimary onClick={()=>{ if(canal) setStep(4); }} disabled={!canal}>
+   746→   746→              Continuar →
+   747→   747→            </BtnPrimary>
+   748→   748→          </div>
+   749→   749→        )}
+   750→   750→
+   751→   751→        {/* PASO 4 — Confirmar */}
+   752→   752→        {step===4 && (
+   753→   753→          <div>
+   754→   754→            <Label>CONFIRMÁ LA VENTA</Label>
+   755→   755→            <Card style={{ marginBottom:16 }}>
+   756→   756→              {[
+   757→   757→                { l:"Producto",   v:isSah?"Sahumerio":"Difusor auto" },
+   758→   758→                { l:"Tipo",       v:isSah?(esPack?"Pack x8":"Suelto"):"—" },
+   759→   759→                { l:"Fragancia",  v:variante },
+   760→   760→                { l:"Cantidad",   v:`${cantidad} uds` },
+   761→   761→                { l:"Canal",      v:canal },
+   762→   762→                { l:"Precio unit",v:$(precioU) },
+   763→   763→              ].map((r,i,arr)=>(
+   764→   764→                <div key={i}>
+   765→   765→                  <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 16px" }}>
+   766→   766→                    <span style={{ fontSize:12, color:T.t2 }}>{r.l}</span>
+   767→   767→                    <span style={{ fontSize:13, fontWeight:600, color:T.t1 }}>{r.v}</span>
+   768→   768→                  </div>
+   769→   769→                  {i<arr.length-1&&<Sep/>}
+   770→   770→                </div>
+   771→   771→              ))}
+   772→   772→              <div style={{ background:T.surface }}>
+   773→   773→                <Sep/>
+   774→   774→                <div style={{ padding:"14px 16px" }}>
+   775→   775→                  <div style={{ fontSize:10, color:T.t3, letterSpacing:1.5, marginBottom:10 }}>
+   776→   776→                    DESGLOSE
+   777→   777→                  </div>
+   778→   778→                  {[
+   779→   779→                    { l:"Total",          v:$(total),    c:T.terra2 },
+   780→   780→                    { l:"Costo material", v:$(cantidad*(costoU-moU)), c:T.t1 },
+   781→   781→                    ...(isSah?[{ l:"Mano de obra",v:$(moVenta),c:T.blue }]:[]),
+   782→   782→                    { l:"Ganancia",       v:$(ganancia), c:T.green },
+   783→   783→                  ].map((r,i)=>(
+   784→   784→                    <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:6, fontSize:12 }}>
+   785→   785→                      <span style={{ color:T.t2 }}>{r.l}</span>
+   786→   786→                      <span style={{ fontWeight:700, color:r.c }}>{r.v}</span>
+   787→   787→                    </div>
+   788→   788→                  ))}
+   789→   789→                </div>
+   790→   790→                <div style={{
+   791→   791→                  display:"flex", justifyContent:"space-between",
+   792→   792→                  padding:"14px 16px",
+   793→   793→                  borderTop:`1px solid ${T.line}`,
+   794→   794→                }}>
+   795→   795→                  <span style={{ fontSize:14, fontWeight:700, color:T.t1 }}>TOTAL</span>
+   796→   796→                  <span style={{ fontSize:20, fontWeight:900, color:T.terra2 }}>{$(total)}</span>
+   797→   797→                </div>
+   798→   798→              </div>
+   799→   799→            </Card>
+   800→   800→            <BtnPrimary onClick={()=>setStep(5)} style={{ marginBottom:10 }}>
+   801→   801→              ✓ Confirmar venta
+   802→   802→            </BtnPrimary>
+   803→   803→            <button onClick={()=>setStep(3)} style={{
+   804→   804→              width:"100%", padding:"12px", background:"none",
+   805→   805→              color:T.t3, border:"none", fontSize:13, cursor:"pointer",
+   806→   806→            }}>← Editar</button>
+   807→   807→          </div>
+   808→   808→        )}
+   809→   809→      </div>
+   810→   810→    </div>
+   811→   811→  );
+   812→   812→}
+   813→   813→
+   814→   814→// ── PANTALLA: CONFIGURACIÓN DE PRECIOS ────────────────────────────────────────
+   815→   815→function Configuracion({ onBack, precios, setPrecios }) {
+   816→   816→  const [local, setLocal] = useState({ ...precios });
+   817→   817→  const [saved, setSaved] = useState(false);
+   818→   818→
+   819→   819→  const campo = (key, label, note) => (
+   820→   820→    <div style={{ marginBottom:16 }}>
+   821→   821→      <div style={{ fontSize:11, color:T.t3, letterSpacing:1, marginBottom:6 }}>{label}</div>
+   822→   822→      <div style={{ position:"relative" }}>
+   823→   823→        <span style={{
+   824→   824→          position:"absolute", left:14, top:"50%", transform:"translateY(-50%)",
+   825→   825→          fontSize:14, color:T.t3, pointerEvents:"none",
+   826→   826→        }}>$</span>
+   827→   827→        <input
+   828→   828→          type="number" value={local[key]}
+   829→   829→          onChange={e=>setLocal({...local,[key]:Number(e.target.value)})}
+   830→   830→          style={{
+   831→   831→            width:"100%", background:T.surface, border:`1px solid ${T.line}`,
+   832→   832→            borderRadius:12, padding:"13px 14px 13px 28px",
+   833→   833→            fontSize:16, fontWeight:700, color:T.terra2,
+   834→   834→            fontFamily:"inherit", outline:"none", boxSizing:"border-box",
+   835→   835→          }}
+   836→   836→        />
+   837→   837→      </div>
+   838→   838→      {note && <div style={{ fontSize:10, color:T.t3, marginTop:4 }}>{note}</div>}
+   839→   839→    </div>
+   840→   840→  );
+   841→   841→
+   842→   842→  const guardar = () => {
+   843→   843→    setPrecios(local);
+   844→   844→    setSaved(true);
+   845→   845→    setTimeout(()=>setSaved(false),2000);
+   846→   846→  };
+   847→   847→
+   848→   848→  return (
+   849→   849→    <div style={{ background:T.bg, minHeight:"100vh", paddingBottom:40 }}>
+   850→   850→      <div style={{ padding:"44px 20px 20px" }}>
+   851→   851→        <button onClick={onBack} style={{
+   852→   852→          background:"none", border:"none", color:T.t3,
+   853→   853→          fontSize:13, cursor:"pointer", padding:0, marginBottom:16,
+   854→   854→        }}>← Volver</button>
+   855→   855→        <div style={{ fontSize:22, fontWeight:800, color:T.t1 }}>Configuración</div>
+   856→   856→        <div style={{ fontSize:12, color:T.t2, marginTop:4 }}>
+   857→   857→          Actualizá precios cuando cambien los costos
+   858→   858→        </div>
+   859→   859→      </div>
+   860→   860→
+   861→   861→      <div style={{ padding:"0 20px" }}>
+   862→   862→        <Label>PRECIOS DE VENTA</Label>
+   863→   863→        <Card style={{ padding:"16px 16px 4px", marginBottom:16 }}>
+   864→   864→          {campo("sahumerio_venta","Sahumerio suelto","Precio minorista por unidad")}
+   865→   865→          {campo("pack8_venta","Pack x8 con packaging","Precio del pack completo de 8 uds")}
+   866→   866→          {campo("difusor_venta","Difusor auto","Precio por unidad")}
+   867→   867→        </Card>
+   868→   868→
+   869→   869→        <Label>MANO DE OBRA</Label>
+   870→   870→        <Card style={{ padding:"16px 16px 4px", marginBottom:16 }}>
+   871→   871→          {campo("mo_sahumerio","MO por sahumerio","$175 × uds vendidas = retiro Seba+Paola")}
+   872→   872→          <div style={{ marginBottom:16 }}>
+   873→   873→            <div style={{ fontSize:11, color:T.t3, letterSpacing:1, marginBottom:6 }}>MO DIFUSORES</div>
+   874→   874→            <div style={{ padding:"13px 14px", background:T.surface, borderRadius:12, border:`1px solid ${T.line}` }}>
+   875→   875→              <span style={{ fontSize:14, fontWeight:700, color:T.t3 }}>$0</span>
+   876→   876→              <span style={{ fontSize:11, color:T.t3, marginLeft:8 }}>Incluido en costo sahumerios</span>
+   877→   877→            </div>
+   878→   878→          </div>
+   879→   879→        </Card>
+   880→   880→
+   881→   881→        <Label>COSTO TOTAL POR PRODUCTO</Label>
+   882→   882→        <Card style={{ padding:"16px 16px 4px", marginBottom:8 }}>
+   883→   883→          {campo("sahumerio_costo","Costo sahumerio (insumos+pkg+MO)","Se deduce: material = costo − MO")}
+   884→   884→          {campo("difusor_costo","Costo difusor (insumos+packaging)","")}
+   885→   885→        </Card>
+   886→   886→
+   887→   887→        {/* Desglose automático */}
+   888→   888→        <Card style={{ padding:"14px 16px", marginBottom:20 }}>
+   889→   889→          <div style={{ fontSize:10, color:T.t3, letterSpacing:1, marginBottom:10 }}>
+   890→   890→            DESGLOSE CALCULADO
+   891→   891→          </div>
+   892→   892→          {[
+   893→   893→            { l:"Costo material sahumerio", v:$(local.sahumerio_costo-local.mo_sahumerio) },
+   894→   894→            { l:"Mano de obra sahumerio",   v:$(local.mo_sahumerio) },
+   895→   895→            { l:"Margen minorista",         v:`${(((local.sahumerio_venta-local.sahumerio_costo)/local.sahumerio_venta)*100).toFixed(1)}%` },
+   896→   896→            { l:"Margen pack x8 (por u)",   v:`${(((local.pack8_venta/8-local.sahumerio_costo)/local.pack8_venta*8)*100).toFixed(1)}%` },
+   897→   897→            { l:"Margen difusor",           v:`${(((local.difusor_venta-local.difusor_costo)/local.difusor_venta)*100).toFixed(1)}%` },
+   898→   898→          ].map((r,i,arr)=>(
+   899→   899→            <div key={i}>
+   900→   900→              <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", fontSize:12 }}>
+   901→   901→                <span style={{ color:T.t2 }}>{r.l}</span>
+   902→   902→                <span style={{ fontWeight:700, color:T.t1 }}>{r.v}</span>
+   903→   903→              </div>
+   904→   904→              {i<arr.length-1&&<Sep/>}
+   905→   905→            </div>
+   906→   906→          ))}
+   907→   907→        </Card>
+   908→   908→
+   909→   909→        <BtnPrimary onClick={guardar}>
+   910→   910→          {saved ? "✓ Guardado" : "Guardar cambios"}
+   911→   911→        </BtnPrimary>
+   912→   912→      </div>
+   913→   913→    </div>
+   914→   914→  );
+   915→   915→}
+   916→   916→
+   917→   917→// ── PANTALLA: RETIRO ──────────────────────────────────────────────────────────
+   918→   918→function Retiro({ onBack, precios }) {
+   919→   919→  const moTotal     = DEMO.udsSah * precios.mo_sahumerio;
+   920→   920→  const costoTotal  = DEMO.udsSah*precios.sahumerio_costo + DEMO.udsDif*precios.difusor_costo;
+   921→   921→  const gananciaEmp = DEMO.facturacion - costoTotal;
+   922→   922→  const gananciaRet = gananciaEmp * 0.45;
+   923→   923→  const disponible  = moTotal + gananciaRet;
+   924→   924→
+   925→   925→  const [quien, setQuien] = useState(null);
+   926→   926→  const [tipo,  setTipo]  = useState(null);
+   927→   927→  const [monto, setMonto] = useState("");
+   928→   928→  const [done,  setDone]  = useState(false);
+   929→   929→  const montoNum = parseInt(monto)||0;
+   930→   930→
+   931→   931→  if (done) return (
+   932→   932→    <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+   933→   933→      justifyContent:"center", minHeight:"85vh", padding:32, textAlign:"center",
+   934→   934→      background:T.bg }}>
+   935→   935→      <div style={{
+   936→   936→        width:72, height:72, borderRadius:"50%",
+   937→   937→        background:T.greenBg, border:`1px solid ${T.green}44`,
+   938→   938→        display:"flex", alignItems:"center", justifyContent:"center",
+   939→   939→        fontSize:32, marginBottom:20,
+   940→   940→        boxShadow:`0 0 32px rgba(74,222,128,0.2)`,
+   941→   941→      }}>💸</div>
+   942→   942→      <div style={{ fontSize:22, fontWeight:800, color:T.t1, marginBottom:4 }}>
+   943→   943→        Retiro registrado
+   944→   944→      </div>
+   945→   945→      <div style={{ fontSize:13, color:T.t2, marginBottom:16 }}>{quien}</div>
+   946→   946→      <div style={{ fontSize:36, fontWeight:900, color:T.green, letterSpacing:-1 }}>
+   947→   947→        {$(montoNum)}
+   948→   948→      </div>
+   949→   949→      <div style={{ marginTop:32, width:"100%" }}>
+   950→   950→        <BtnPrimary onClick={onBack}>Volver</BtnPrimary>
+   951→   951→      </div>
+   952→   952→    </div>
+   953→   953→  );
+   954→   954→
+   955→   955→  return (
+   956→   956→    <div style={{ background:T.bg, minHeight:"100vh", paddingBottom:40 }}>
+   957→   957→      <div style={{ padding:"44px 20px 20px" }}>
+   958→   958→        <button onClick={onBack} style={{
+   959→   959→          background:"none", border:"none", color:T.t3,
+   960→   960→          fontSize:13, cursor:"pointer", padding:0, marginBottom:16,
+   961→   961→        }}>← Volver</button>
+   962→   962→        <div style={{ fontSize:22, fontWeight:800, color:T.t1 }}>Registrar retiro</div>
+   963→   963→      </div>
+   964→   964→
+   965→   965→      <div style={{ padding:"0 20px" }}>
+   966→   966→        {/* Disponible */}
+   967→   967→        <Card style={{ padding:"16px", marginBottom:20 }}>
+   968→   968→          <div style={{ fontSize:10, color:T.t3, letterSpacing:1.5, marginBottom:10 }}>
+   969→   969→            DISPONIBLE
+   970→   970→          </div>
+   971→   971→          {[
+   972→   972→            { l:"Por mano de obra",   v:$(moTotal),     c:T.blue  },
+   973→   973→            { l:"Por ganancia (45%)", v:$(gananciaRet), c:T.green },
+   974→   974→          ].map((r,i)=>(
+   975→   975→            <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:8, fontSize:13 }}>
+   976→   976→              <span style={{ color:T.t2 }}>{r.l}</span>
+   977→   977→              <span style={{ fontWeight:700, color:r.c }}>{r.v}</span>
+   978→   978→            </div>
+   979→   979→          ))}
+   980→   980→          <Sep/>
+   981→   981→          <div style={{ display:"flex", justifyContent:"space-between", marginTop:8 }}>
+   982→   982→            <span style={{ fontSize:13, fontWeight:700, color:T.t1 }}>Total disponible</span>
+   983→   983→            <span style={{ fontSize:18, fontWeight:900, color:T.terra2 }}>{$(disponible)}</span>
+   984→   984→          </div>
+   985→   985→        </Card>
+   986→   986→
+   987→   987→        <Label>¿QUIÉN RETIRA?</Label>
+   988→   988→        <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+   989→   989→          {["Sebastián","Paola","Ambos"].map(q=>(
+   990→   990→            <BtnGhost key={q} active={quien===q} onClick={()=>setQuien(q)}>{q}</BtnGhost>
+   991→   991→          ))}
+   992→   992→        </div>
+   993→   993→
+   994→   994→        <Label>TIPO</Label>
+   995→   995→        <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+   996→   996→          {[
+   997→   997→            { k:"mo",       l:"Mano de obra",    d:`Disponible ${$(moTotal)}`,     c:T.blue  },
+   998→   998→            { k:"ganancia", l:"Ganancia empresa", d:`Disponible ${$(gananciaRet)}`, c:T.green },
+   999→   999→            { k:"ambos",    l:"Ambos",            d:`Total ${$(disponible)}`,       c:T.terra2},
+  1000→  1000→          ].map(t=>(
+  1001→  1001→            <button key={t.k} onClick={()=>setTipo(t.k)} style={{
+  1002→  1002→              background: tipo===t.k ? T.card : "transparent",
+  1003→  1003→              border:`1px solid ${tipo===t.k ? t.c : T.line}`,
+  1004→  1004→              borderRadius:12, padding:"13px 16px", textAlign:"left", cursor:"pointer",
+  1005→  1005→              transition:"all 0.15s",
+  1006→  1006→            }}>
+  1007→  1007→              <div style={{ fontSize:13, fontWeight:700, color:tipo===t.k?t.c:T.t1 }}>{t.l}</div>
+  1008→  1008→              <div style={{ fontSize:11, color:T.t3, marginTop:2 }}>{t.d}</div>
+  1009→  1009→            </button>
+  1010→  1010→          ))}
+  1011→  1011→        </div>
+  1012→  1012→
+  1013→  1013→        <Label>MONTO</Label>
+  1014→  1014→        <div style={{ position:"relative", marginBottom:12 }}>
+  1015→  1015→          <span style={{
+  1016→  1016→            position:"absolute", left:16, top:"50%", transform:"translateY(-50%)",
+  1017→  1017→            fontSize:20, fontWeight:900, color:T.t3,
+  1018→  1018→          }}>$</span>
+  1019→  1019→          <input type="number" placeholder="0" value={monto}
+  1020→  1020→            onChange={e=>setMonto(e.target.value)}
+  1021→  1021→            style={{
+  1022→  1022→              width:"100%", background:T.surface, border:`1px solid ${monto?T.terra:T.line}`,
+  1023→  1023→              borderRadius:14, padding:"18px 16px 18px 36px",
+  1024→  1024→              fontSize:28, fontWeight:900, color:T.terra2,
+  1025→  1025→              fontFamily:"inherit", outline:"none", boxSizing:"border-box",
+  1026→  1026→            }}
+  1027→  1027→          />
+  1028→  1028→        </div>
+  1029→  1029→        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:24 }}>
+  1030→  1030→          {[50000,100000,150000,200000].map(n=>(
+  1031→  1031→            <button key={n} onClick={()=>setMonto(String(n))} style={{
+  1032→  1032→              background:T.surface, border:`1px solid ${T.line}`,
+  1033→  1033→              borderRadius:20, padding:"7px 14px",
+  1034→  1034→              fontSize:11, fontWeight:600, color:T.t2, cursor:"pointer",
+  1035→  1035→            }}>{$(n)}</button>
+  1036→  1036→          ))}
+  1037→  1037→        </div>
+  1038→  1038→
+  1039→  1039→        <BtnPrimary
+  1040→  1040→          onClick={()=>{ if(monto&&quien&&tipo) setDone(true); }}
+  1041→  1041→          disabled={!monto||!quien||!tipo}>
+  1042→  1042→          Confirmar retiro
+  1043→  1043→        </BtnPrimary>
+  1044→  1044→      </div>
+  1045→  1045→    </div>
+  1046→  1046→  );
+  1047→  1047→}
+  1048→  1048→
+  1049→  1049→// ── NAV BAR ───────────────────────────────────────────────────────────────────
+  1050→  1050→function NavBar({ active, onNav }) {
+  1051→  1051→  const tabs = [
+  1052→  1052→    { k:"dashboard", icon:"◈",  l:"Inicio"   },
+  1053→  1053→    { k:"venta",     icon:"↑",  l:"Vender"   },
+  1054→  1054→    { k:"compra",    icon:"↓",  l:"Comprar"  },
+  1055→  1055→    { k:"config",    icon:"⊙",  l:"Precios"  },
+  1056→  1056→  ];
+  1057→  1057→  return (
+  1058→  1058→    <div style={{
+  1059→  1059→      position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
+  1060→  1060→      width:"100%", maxWidth:430,
+  1061→  1061→      background:T.surface,
+  1062→  1062→      borderTop:`1px solid ${T.line}`,
+  1063→  1063→      display:"flex", zIndex:100,
+  1064→  1064→      paddingBottom:"env(safe-area-inset-bottom)",
+  1065→  1065→    }}>
+  1066→  1066→      {tabs.map(t=>(
+  1067→  1067→        <button key={t.k} onClick={()=>onNav(t.k)} style={{
+  1068→  1068→          flex:1, padding:"12px 0 14px",
+  1069→  1069→          background:"none", border:"none",
+  1070→  1070→          display:"flex", flexDirection:"column",
+  1071→  1071→          alignItems:"center", gap:4, cursor:"pointer",
+  1072→  1072→        }}>
+  1073→  1073→          <span style={{
+  1074→  1074→            fontSize:18, lineHeight:1,
+  1075→  1075→            color: active===t.k ? T.terra2 : T.t3,
+  1076→  1076→            transition:"color 0.2s",
+  1077→  1077→          }}>{t.icon}</span>
+  1078→  1078→          <span style={{
+  1079→  1079→            fontSize:9, fontWeight:700, letterSpacing:1,
+  1080→  1080→            color: active===t.k ? T.terra2 : T.t3,
+  1081→  1081→            transition:"color 0.2s",
+  1082→  1082→          }}>{t.l}</span>
+  1083→  1083→        </button>
+  1084→  1084→      ))}
+  1085→  1085→    </div>
+  1086→  1086→  );
+  1087→  1087→}
+  1088→  1088→
+  1089→  1089→// ── APP ROOT ──────────────────────────────────────────────────────────────────
+  1090→  1090→export default function App() {
+  1091→  1091→  const [screen, setScreen] = useState("dashboard");
+  1092→  1092→  const [precios, setPrecios] = useState(PRECIOS_INIT);
+  1093→  1093→  const navScreens = ["dashboard","venta","compra","config"];
+  1094→  1094→
+  1095→  1095→  return (
+  1096→  1096→    <div style={{
+  1097→  1097→      maxWidth:430, margin:"0 auto", minHeight:"100vh",
+  1098→  1098→      background:T.bg,
+  1099→  1099→      fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  1100→  1100→    }}>
+  1101→  1101→      {screen==="dashboard" && <Dashboard onNav={setScreen} precios={precios}/>}
+  1102→  1102→      {screen==="venta"     && <RegistrarVenta onBack={()=>setScreen("dashboard")} precios={precios}/>}
+  1103→  1103→      {screen==="compra"    && (
+  1104→  1104→        <div style={{ background:T.bg, minHeight:"100vh", padding:"44px 20px" }}>
+  1105→  1105→          <button onClick={()=>setScreen("dashboard")} style={{
+  1106→  1106→            background:"none", border:"none", color:T.t3, fontSize:13, cursor:"pointer", padding:0,
+  1107→  1107→          }}>← Volver</button>
+  1108→  1108→          <div style={{ fontSize:22, fontWeight:800, color:T.t1, marginTop:16, marginBottom:24 }}>
+  1109→  1109→            Registrar compra
+  1110→  1110→          </div>
+  1111→  1111→          {[
+  1112→  1112→            { k:"foto",   i:"📷", t:"Foto de remito",   d:"Claude lee el documento automáticamente" },
+  1113→  1113→            { k:"oral",   i:"🎙", t:"Dictado de voz",   d:"Hablá con el micrófono del teclado" },
+  1114→  1114→            { k:"manual", i:"✏", t:"Manual",            d:"Ingresá los datos uno por uno" },
+  1115→  1115→          ].map(m=>(
+  1116→  1116→            <button key={m.k} style={{
+  1117→  1117→              width:"100%", background:T.card, border:`1px solid ${T.line}`,
+  1118→  1118→              borderRadius:16, padding:"18px", textAlign:"left", cursor:"pointer",
+  1119→  1119→              display:"flex", alignItems:"center", gap:14, marginBottom:10,
+  1120→  1120→            }}>
+  1121→  1121→              <div style={{ width:44, height:44, borderRadius:12, background:T.surface,
+  1122→  1122→                display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>{m.i}</div>
+  1123→  1123→              <div>
+  1124→  1124→                <div style={{ fontSize:14, fontWeight:700, color:T.t1 }}>{m.t}</div>
+  1125→  1125→                <div style={{ fontSize:12, color:T.t2, marginTop:2 }}>{m.d}</div>
+  1126→  1126→              </div>
+  1127→  1127→            </button>
+  1128→  1128→          ))}
+  1129→  1129→        </div>
+  1130→  1130→      )}
+  1131→  1131→      {screen==="config"    && <Configuracion onBack={()=>setScreen("dashboard")} precios={precios} setPrecios={setPrecios}/>}
+  1132→  1132→      {screen==="retiro"    && <Retiro onBack={()=>setScreen("dashboard")} precios={precios}/>}
+  1133→  1133→      {navScreens.includes(screen) && <NavBar active={screen} onNav={setScreen}/>}
+  1134→  1134→    </div>
+  1135→  1135→  );
+  1136→  1136→}
