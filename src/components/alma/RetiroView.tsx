@@ -77,8 +77,8 @@ export function RetiroView({ onBack }: { onBack: () => void }) {
       <div className="card-glass rounded-2xl p-5 mb-6">
         <p className="text-noir-t3 text-[10px] tracking-[0.2em] font-medium uppercase mb-3">Disponible</p>
         {[
-          { l: 'Mano de obra', v: formatARS(stats.moTotal), c: 'text-noir-ice' },
-          { l: 'Ganancia (45%)', v: formatARS(stats.gananciaRet), c: 'text-noir-sage' },
+          { l: 'Mano de obra', v: formatARS(stats.moTotal), c: 'text-terra' },
+          { l: 'Ganancia (45%)', v: formatARS(stats.gananciaRet), c: 'text-sage' },
         ].map(r => (
           <div key={r.l} className="flex justify-between text-[12px] mb-2">
             <span className="text-noir-t2 font-light">{r.l}</span>
@@ -107,8 +107,8 @@ export function RetiroView({ onBack }: { onBack: () => void }) {
       <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-2">Tipo de retiro</p>
       <div className="space-y-1.5 mb-6">
         {[
-          { k: 'mo', l: 'Mano de obra', d: formatARS(stats.moTotal), c: 'text-noir-ice' },
-          { k: 'ganancia', l: 'Ganancia', d: formatARS(stats.gananciaRet), c: 'text-noir-sage' },
+          { k: 'mo', l: 'Mano de obra', d: formatARS(stats.moTotal), c: 'text-terra' },
+          { k: 'ganancia', l: 'Ganancia', d: formatARS(stats.gananciaRet), c: 'text-sage' },
           { k: 'ambos', l: 'Ambos', d: formatARS(disponible), c: 'text-gold' },
         ].map(t => (
           <button key={t.k} onClick={() => setTipo(t.k)}

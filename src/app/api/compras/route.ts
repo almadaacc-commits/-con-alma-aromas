@@ -14,8 +14,19 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const limit = parseInt(searchParams.get('limit') || '50');
+  const desde = searchParams.get('desde');
+  const hasta = searchParams.get('hasta');
+
+  const where: Record<string, unknown> = {};
+  if (desde || hasta) {
+    const f: Record<string, unknown> = {};
+    if (desde) f.gte = new Date(desde);
+    if (hasta) f.lte = new Date(hasta);
+    where.createdAt = f;
+  }
 
   const compras = await db.compra.findMany({
+    where,
     orderBy: { createdAt: 'desc' },
     take: limit,
   });

@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const mes = parseInt(searchParams.get('mes') || '7');
-  const anio = parseInt(searchParams.get('anio') || '2025');
+  const now = new Date();
+  const mes = parseInt(searchParams.get('mes') || String(now.getMonth() + 1));
+  const anio = parseInt(searchParams.get('anio') || String(now.getFullYear()));
 
   const startOfMonth = new Date(anio, mes - 1, 1);
   const endOfMonth = new Date(anio, mes, 0, 23, 59, 59);

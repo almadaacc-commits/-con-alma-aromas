@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Config {
@@ -48,6 +49,15 @@ model Retiro {
   tipo            String   // "mo", "ganancia", "ambos"
   monto           Float
   createdAt       DateTime @default(now())
+}
+
+model Produccion {
+  id        String   @id @default(cuid())
+  fecha     DateTime @default(now())
+  tipo      String   // 'sah_sin_aroma' | 'sah_aromatizado' | 'dif_entrada'
+  variante  String?
+  cantidad  Int
+  notas     String?
 }
 
 model Inventario {

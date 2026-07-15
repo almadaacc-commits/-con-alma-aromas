@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Screen = 'dashboard' | 'venta' | 'compra' | 'retiro' | 'config' | 'historial';
+export type Screen = 'dashboard' | 'venta' | 'compra' | 'retiro' | 'config' | 'historial' | 'stock';
 
 interface AlmaStore {
   screen: Screen;

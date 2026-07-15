@@ -8,17 +8,19 @@ import { CompraView } from './CompraView';
 import { RetiroView } from './RetiroView';
 import { ConfigView } from './ConfigView';
 import { HistorialView } from './HistorialView';
+import { StockView } from './StockView';
 import {
-  LayoutGrid, Plus, ShoppingCart, Wallet, SlidersHorizontal, Clock
+  LayoutGrid, Plus, ShoppingCart, Wallet, SlidersHorizontal, Clock, Archive
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const NAV: { k: Screen; icon: typeof LayoutGrid; l: string }[] = [
-  { k: 'dashboard', icon: LayoutGrid, l: 'Inicio' },
-  { k: 'venta',     icon: Plus,          l: 'Vender' },
-  { k: 'compra',    icon: ShoppingCart,  l: 'Comprar' },
-  { k: 'historial', icon: Clock,         l: 'Historial' },
-  { k: 'retiro',    icon: Wallet,        l: 'Retirar' },
+  { k: 'dashboard', icon: LayoutGrid,        l: 'Inicio' },
+  { k: 'venta',     icon: Plus,              l: 'Vender' },
+  { k: 'stock',     icon: Archive,           l: 'Stock' },
+  { k: 'compra',    icon: ShoppingCart,      l: 'Comprar' },
+  { k: 'historial', icon: Clock,             l: 'Historial' },
+  { k: 'retiro',    icon: Wallet,            l: 'Retirar' },
   { k: 'config',    icon: SlidersHorizontal, l: 'Ajustes' },
 ];
 
@@ -43,14 +45,15 @@ export function AlmaApp() {
       case 'retiro':    return <RetiroView onBack={() => setScreen('dashboard')} />;
       case 'config':    return <ConfigView onBack={() => setScreen('dashboard')} />;
       case 'historial': return <HistorialView />;
+      case 'stock':     return <StockView />;
       default:          return <DashboardView onNav={setScreen} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-noir-bg">
+    <div className="min-h-screen bg-noir-bg bg-texture">
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[220px] bg-noir-surface border-r border-noir-border flex-col z-50">
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[220px] card-glass-deep border-r border-alma-border flex-col z-50">
         {/* Logo */}
         <div className="px-6 pt-8 pb-2">
           <h1 className="text-gold font-black text-[13px] tracking-[0.25em] uppercase">Alma</h1>
@@ -68,8 +71,8 @@ export function AlmaApp() {
                 onClick={() => setScreen(t.k)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] cursor-pointer transition-luxury border-none ${
                   active
-                    ? 'bg-gold-soft text-gold font-medium'
-                    : 'text-noir-t2 hover:text-noir-t1 hover:bg-noir-hover'
+                    ? 'bg-gold-soft text-gold font-semibold'
+                    : 'text-noir-t2 hover:text-alma-t1 hover:bg-alma-hover'
                 }`}
               >
                 <Icon size={17} strokeWidth={active ? 2 : 1.5} />
@@ -81,7 +84,7 @@ export function AlmaApp() {
         {/* Footer */}
         <div className="px-5 pb-6">
           <div className="sep-thin mb-4" />
-          <p className="text-noir-t3 text-[10px] tracking-wider font-light">v2.0 · Noir Luxe</p>
+          <p className="text-noir-t3 text-[10px] tracking-wider font-light">v2.0 · Alma Profunda</p>
         </div>
       </aside>
 

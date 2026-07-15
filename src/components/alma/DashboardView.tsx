@@ -3,18 +3,22 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useAlmaStore, type Screen } from './store';
 import { formatARS } from './lib';
-import { TrendingUp, AlertTriangle, Package, Wrench, ArrowUpRight } from 'lucide-react';
+import {
+  TrendingUp, AlertTriangle, Package, Wrench, ArrowUpRight,
+  ChevronLeft, ChevronRight, Download,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
 
-const PIE_COLORS = ['#C8A45C', '#9B7D3E', '#6BCB77', '#5B9FED', '#E8A838', '#E85D5D', '#A78BFA', '#F472B6'];
+const PIE_COLORS = ['#C8A45C', '#C4622D', '#7A9E7E', '#9B7D3E', '#D97A50', '#4E7257', '#A4C4AA', '#8F461F'];
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 interface DashData {
   mesNOMBRE: string;
@@ -47,21 +51,109 @@ const fadeUp = {
   }),
 };
 
+function descargarCSV(contenido: string, nombre: string) {
+  const bom = '﻿';
+  const blob = new Blob([bom + contenido], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
   const { dashboardRefresh } = useAlmaStore();
   const [data, setData] = useState<DashData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportando, setExportando] = useState(false);
+
+  const now = new Date();
+  const [mes, setMes]   = useState(now.getMonth() + 1);
+  const [anio, setAnio] = useState(now.getFullYear());
+
+  const prevMes = () => {
+    if (mes === 1) { setMes(12); setAnio(a => a - 1); }
+    else setMes(m => m - 1);
+  };
+  const nextMes = () => {
+    const esFuturo = anio > now.getFullYear() || (anio === now.getFullYear() && mes >= now.getMonth() + 1);
+    if (esFuturo) return;
+    if (mes === 12) { setMes(1); setAnio(a => a + 1); }
+    else setMes(m => m + 1);
+  };
+  const esMesActual = mes === now.getMonth() + 1 && anio === now.getFullYear();
 
   const fetchDashboard = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/dashboard');
+      const res = await fetch(`/api/dashboard?mes=${mes}&anio=${anio}`);
       const json = await res.json();
       setData(json);
     } catch { /* empty */ }
     setLoading(false);
-  }, []);
+  }, [mes, anio]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard, dashboardRefresh]);
+
+  const exportarMes = async () => {
+    if (!data) return;
+    setExportando(true);
+    try {
+      const inicio = new Date(anio, mes - 1, 1).toISOString();
+      const fin    = new Date(anio, mes, 0, 23, 59, 59).toISOString();
+      const [ventas, compras, retiros] = await Promise.all([
+        fetch(`/api/ventas?desde=${inicio}&hasta=${fin}&limit=10000`).then(r => r.json()),
+        fetch(`/api/compras?desde=${inicio}&hasta=${fin}&limit=10000`).then(r => r.json()),
+        fetch(`/api/retiros?desde=${inicio}&hasta=${fin}`).then(r => r.json()),
+      ]);
+
+      const disponible = data.moTotal + data.gananciaRet - data.totalRetiros;
+      const rows: string[] = [
+        `INFORME MENSUAL - ${MESES[mes - 1].toUpperCase()} ${anio}`,
+        '',
+        'RESUMEN',
+        `Facturación,${data.facturacion}`,
+        `Costos,${data.costoTotal}`,
+        `Mano de obra,${data.moTotal}`,
+        `Ganancia empresa,${data.gananciaEmp}`,
+        `Reinversión (35%),${data.reinversion}`,
+        `Retiro ganancia (45%),${data.gananciaRet}`,
+        `Total retiros,${data.totalRetiros}`,
+        `Disponible,${disponible}`,
+        '',
+        'CANALES',
+        'Canal,Monto,Porcentaje',
+        ...data.canales.map(c => `${c.label},${c.monto},${c.pct}%`),
+        '',
+        'VENTAS',
+        'Fecha,Producto,Tipo,Fragancia,Cantidad,Precio unit.,Total,Costo,Ganancia,MO,Canal',
+        ...ventas.map((v: any) => [
+          new Date(v.createdAt).toLocaleDateString('es-AR'),
+          v.producto, v.tipo, v.variante, v.cantidad,
+          v.precioUnitario, v.total, v.costoUnitario, v.ganancia, v.manoDeObra, v.canal,
+        ].join(',')),
+        '',
+        'COMPRAS',
+        'Fecha,Proveedor,Insumo,Cantidad,Unidad,Costo unit.,Total,Notas',
+        ...compras.map((c: any) => [
+          new Date(c.createdAt).toLocaleDateString('es-AR'),
+          c.proveedor, c.insumo, c.cantidad, c.unidadMedida,
+          c.costoUnitario, c.total, c.observaciones || '',
+        ].join(',')),
+        '',
+        'RETIROS',
+        'Fecha,Quien,Tipo,Monto',
+        ...retiros.map((r: any) => [
+          new Date(r.createdAt).toLocaleDateString('es-AR'),
+          r.quien,
+          r.tipo === 'mo' ? 'Mano de obra' : r.tipo === 'ganancia' ? 'Ganancia' : 'Ambos',
+          r.monto,
+        ].join(',')),
+      ];
+
+      descargarCSV(rows.join('\n'), `alma-${anio}-${String(mes).padStart(2, '0')}.csv`);
+    } catch { /* empty */ }
+    setExportando(false);
+  };
 
   if (loading || !data) {
     return (
@@ -69,19 +161,48 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
         <div className="animate-pulse space-y-4">
           <div className="h-4 w-24 bg-noir-card rounded" />
           <div className="h-12 w-64 bg-noir-card rounded" />
-          {[1,2,3,4].map(i => (
-            <div key={i} className="h-28 bg-noir-card rounded-2xl" />
-          ))}
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-noir-card rounded-2xl" />)}
         </div>
       </div>
     );
   }
 
   const disponible = data.moTotal + data.gananciaRet - data.totalRetiros;
-  const margen = ((data.gananciaEmp / data.facturacion) * 100).toFixed(1);
+  const margen = ((data.gananciaEmp / data.facturacion) * 100 || 0).toFixed(1);
 
   return (
     <div className="max-w-xl mx-auto px-5 pt-10 pb-28 lg:px-8 lg:pt-12 lg:pb-8">
+
+      {/* ── Selector de mes ── */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={prevMes}
+            className="w-8 h-8 rounded-lg border border-noir-border flex items-center justify-center text-noir-t3 hover:text-noir-t1 hover:border-gold/30 transition-luxury bg-transparent cursor-pointer"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-[13px] font-semibold text-noir-t1 min-w-[130px] text-center capitalize">
+            {MESES[mes - 1]} {anio}
+          </span>
+          <button
+            onClick={nextMes}
+            disabled={esMesActual}
+            className="w-8 h-8 rounded-lg border border-noir-border flex items-center justify-center text-noir-t3 hover:text-noir-t1 hover:border-gold/30 transition-luxury bg-transparent cursor-pointer disabled:opacity-30 disabled:cursor-default"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <button
+          onClick={exportarMes}
+          disabled={exportando}
+          className="flex items-center gap-1.5 text-[11px] text-noir-t3 hover:text-gold transition-luxury cursor-pointer bg-transparent border-none font-medium tracking-wide disabled:opacity-50"
+        >
+          <Download size={12} />
+          {exportando ? 'Generando...' : 'Exportar mes'}
+        </button>
+      </div>
+
       {/* ── Header ── */}
       <motion.div initial="hidden" animate="visible" className="mb-8">
         <motion.p variants={fadeUp} custom={0} className="text-noir-t3 text-[11px] tracking-[0.3em] font-medium uppercase mb-3">
@@ -93,11 +214,7 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
       </motion.div>
 
       {/* ── Hero number ── */}
-      <motion.div
-        variants={fadeUp} custom={2}
-        initial="hidden" animate="visible"
-        className="mb-8"
-      >
+      <motion.div variants={fadeUp} custom={2} initial="hidden" animate="visible" className="mb-8">
         <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-2">Facturación del mes</p>
         <p className="text-[44px] sm:text-[56px] font-black text-gold-gradient tracking-[-0.04em] leading-[0.9]">
           {formatARS(data.facturacion)}
@@ -115,12 +232,11 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
 
       {/* ── Disponible card ── */}
       <motion.div
-        variants={fadeUp} custom={3}
-        initial="hidden" animate="visible"
+        variants={fadeUp} custom={3} initial="hidden" animate="visible"
         onClick={() => onNav('retiro')}
-        className="card-glass rounded-2xl p-5 mb-6 cursor-pointer transition-luxury hover:border-gold/20 group relative overflow-hidden"
+        className="card-glass-raised rounded-2xl p-5 mb-6 cursor-pointer transition-luxury hover:border-gold/30 group relative overflow-hidden relief-gold"
       >
-        <div className="absolute top-0 right-0 w-40 h-40 bg-gold/3 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-48 h-48 bg-gold/5 rounded-full -translate-y-1/3 translate-x-1/4 pointer-events-none blur-2xl" />
         <div className="relative">
           <div className="flex items-center justify-between mb-1">
             <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase">Disponible</p>
@@ -132,26 +248,22 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
             <span className="text-noir-t3">·</span>
             <span>Gan. {formatARS(data.gananciaRet)}</span>
             <span className="text-noir-t3">·</span>
-            <span className="text-noir-coral/70">Retirado {formatARS(data.totalRetiros)}</span>
+            <span className="text-terra/70">Retirado {formatARS(data.totalRetiros)}</span>
           </div>
         </div>
       </motion.div>
 
       {/* ── Metric cards ── */}
-      <motion.div
-        variants={fadeUp} custom={4}
-        initial="hidden" animate="visible"
-        className="grid grid-cols-2 gap-2.5 mb-6"
-      >
+      <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible" className="grid grid-cols-2 gap-2.5 mb-6">
         {[
-          { l: 'Ganancia', v: formatARS(data.gananciaEmp), sub: `${margen}% margen`, icon: TrendingUp, accent: 'text-gold' },
-          { l: 'Reinversión', v: formatARS(data.reinversion), sub: '35% de ganancia', icon: Package, accent: 'text-noir-t1' },
-          { l: 'Costos', v: formatARS(data.costoTotal), sub: `${((data.costoTotal / data.facturacion) * 100).toFixed(0)}% facturación`, icon: AlertTriangle, accent: 'text-noir-t1' },
-          { l: 'Mano de obra', v: formatARS(data.moTotal), sub: `${data.totalVentas} operaciones`, icon: Wrench, accent: 'text-noir-ice' },
-        ].map((m) => {
+          { l: 'Ganancia',     v: formatARS(data.gananciaEmp), sub: `${margen}% margen`,                                         icon: TrendingUp,   accent: 'text-gold' },
+          { l: 'Reinversión',  v: formatARS(data.reinversion), sub: '35% de ganancia',                                           icon: Package,      accent: 'text-noir-t1' },
+          { l: 'Costos',       v: formatARS(data.costoTotal),  sub: `${data.facturacion > 0 ? ((data.costoTotal / data.facturacion) * 100).toFixed(0) : 0}% facturación`, icon: AlertTriangle, accent: 'text-noir-t1' },
+          { l: 'Mano de obra', v: formatARS(data.moTotal),     sub: `${data.totalVentas} operaciones`,                           icon: Wrench,       accent: 'text-terra' },
+        ].map(m => {
           const Icon = m.icon;
           return (
-            <Card key={m.l} className="card-glass rounded-2xl gold-glow">
+            <Card key={m.l} className="card-glass rounded-2xl glow-gold">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-noir-t3 text-[10px] tracking-[0.2em] font-medium uppercase">{m.l}</span>
@@ -181,9 +293,10 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
 
         {/* CANALES */}
         <TabsContent value="canales" className="mt-0 space-y-4">
-          {/* Channel bars */}
           <div>
-            {data.canales.map((c) => (
+            {data.canales.length === 0 ? (
+              <p className="text-noir-t3 text-sm text-center py-8 font-light">Sin ventas en este mes</p>
+            ) : data.canales.map(c => (
               <div key={c.label} className="py-3">
                 <div className="flex justify-between items-baseline mb-2">
                   <span className="text-[13px] text-noir-t1 font-medium">{c.label}</span>
@@ -204,7 +317,6 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
             ))}
           </div>
 
-          {/* Daily chart */}
           {data.dailySales.length > 1 && (
             <Card className="card-glass rounded-2xl">
               <CardContent className="p-4 pt-5">
@@ -214,19 +326,19 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
                     <BarChart data={data.dailySales} barSize={8}>
                       <XAxis
                         dataKey="date"
-                        tick={{ fontSize: 9, fill: '#3E3E4E' }}
+                        tick={{ fontSize: 9, fill: '#4E7257' }}
                         tickFormatter={(v: string) => v.slice(-2)}
                         axisLine={false} tickLine={false}
                       />
                       <Tooltip
                         contentStyle={{
-                          background: '#15151E', border: '1px solid #1F1F2C',
-                          borderRadius: 12, color: '#EEEAE4', fontSize: 11,
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                          background: '#1A3326', border: '1px solid rgba(122,158,126,0.20)',
+                          borderRadius: 12, color: '#F0EDE8', fontSize: 11,
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.50)',
                         }}
                         formatter={(v: number) => [formatARS(v), '']}
                         labelFormatter={(l: string) => `Día ${l.slice(-2)}`}
-                        cursor={{ fill: 'rgba(200,164,92,0.04)' }}
+                        cursor={{ fill: 'rgba(200,164,92,0.06)' }}
                       />
                       <Bar dataKey="monto" fill="#C8A45C" radius={[4, 4, 0, 0]} opacity={0.85} />
                     </BarChart>
@@ -236,7 +348,6 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
             </Card>
           )}
 
-          {/* Aroma pie */}
           {data.aromaPie.length > 0 && (
             <Card className="card-glass rounded-2xl">
               <CardContent className="p-4 pt-5">
@@ -245,11 +356,7 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
                   <div className="w-36 h-36 shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie
-                          data={data.aromaPie} cx="50%" cy="50%"
-                          innerRadius={32} outerRadius={60}
-                          dataKey="value" stroke="none"
-                        >
+                        <Pie data={data.aromaPie} cx="50%" cy="50%" innerRadius={32} outerRadius={60} dataKey="value" stroke="none">
                           {data.aromaPie.map((_, i) => (
                             <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                           ))}
@@ -277,9 +384,9 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
           <Card className="card-glass rounded-2xl">
             <CardContent className="p-0">
               {[
-                { l: 'Reinversión (35%)', v: formatARS(data.reinversion), c: 'text-gold', pct: 35 },
-                { l: 'Costos indirectos (20%)', v: formatARS(data.gananciaEmp * 0.2), c: 'text-noir-t2', pct: 20 },
-                { l: 'Retiro ganancia (45%)', v: formatARS(data.gananciaRet), c: 'text-noir-sage', pct: 45 },
+                { l: 'Reinversión (35%)',      v: formatARS(data.reinversion),         c: 'text-gold',     pct: 35 },
+                { l: 'Costos indirectos (20%)', v: formatARS(data.gananciaEmp * 0.2),  c: 'text-noir-t2',  pct: 20 },
+                { l: 'Retiro ganancia (45%)',   v: formatARS(data.gananciaRet),         c: 'text-sage',     pct: 45 },
               ].map((r, i) => (
                 <div key={r.l}>
                   <div className="px-5 py-4">
@@ -293,7 +400,7 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
                         animate={{ width: `${r.pct}%` }}
                         transition={{ duration: 0.6, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
                         className="h-full rounded-full"
-                        style={{ background: r.c === 'text-gold' ? '#C8A45C' : r.c === 'text-noir-sage' ? '#6BCB77' : '#3E3E4E' }}
+                        style={{ background: r.c === 'text-gold' ? '#C8A45C' : r.c === 'text-sage' ? '#7A9E7E' : 'rgba(78,114,87,0.35)' }}
                       />
                     </div>
                   </div>
@@ -312,9 +419,9 @@ export function DashboardView({ onNav }: { onNav: (s: Screen) => void }) {
             <Card className="card-glass rounded-2xl">
               <CardContent className="p-0">
                 {data.stockAlertas.map((a, i) => {
-                  const colorMap: Record<string, string> = { red: 'bg-noir-coral', yellow: 'bg-noir-amber', green: 'bg-noir-sage' };
+                  const colorMap: Record<string, string> = { red: 'bg-terra', yellow: 'bg-gold', green: 'bg-sage' };
                   const labelMap: Record<string, string> = { red: 'Urgente', yellow: 'Bajo', green: 'Ok' };
-                  const textColorMap: Record<string, string> = { red: 'text-noir-coral', yellow: 'text-noir-amber', green: 'text-noir-sage' };
+                  const textColorMap: Record<string, string> = { red: 'text-terra', yellow: 'text-gold', green: 'text-sage' };
                   return (
                     <div key={a.id}>
                       <div className="flex items-center justify-between px-5 py-3.5">

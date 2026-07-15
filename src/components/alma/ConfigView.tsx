@@ -17,7 +17,31 @@ const DEFAULTS: Config = {
   sahumerio_costo: 375, difusor_costo: 320, mo_sahumerio: 175, mo_difusor: 0,
 };
 
+interface CampoProps {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}
+
+function Campo({ label, value, onChange }: CampoProps) {
+  return (
+    <div className="mb-4">
+      <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">{label}</label>
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] text-noir-t3 font-medium">$</span>
+        <Input
+          type="number"
+          value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          className="pl-8 bg-noir-surface border-noir-border text-gold font-semibold rounded-xl h-11 text-[14px]"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function ConfigView({ onBack }: { onBack: () => void }) {
+  const { refreshDashboard } = useAlmaStore();
   const [config, setConfig] = useState<Config>(DEFAULTS);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -26,28 +50,23 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
     fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {});
   }, []);
 
-  const update = (key: keyof Config, value: number) => setConfig(c => ({ ...c, [key]: value }));
+  const update = (key: keyof Config, value: number) =>
+    setConfig(c => ({ ...c, [key]: value }));
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+      await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      refreshDashboard();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch { /* empty */ }
     setSaving(false);
   };
-
-  const Campo = ({ label, key_ }: { label: string; key_: keyof Config }) => (
-    <div className="mb-4">
-      <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">{label}</label>
-      <div className="relative">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] text-noir-t3 font-medium">$</span>
-        <Input type="number" value={config[key_]} onChange={e => update(key_, Number(e.target.value))}
-          className="pl-8 bg-noir-surface border-noir-border text-gold font-semibold rounded-xl h-11 text-[14px]" />
-      </div>
-    </div>
-  );
 
   const matSah = config.sahumerio_costo - config.mo_sahumerio;
   const margenMin = ((config.sahumerio_venta - config.sahumerio_costo) / config.sahumerio_venta * 100).toFixed(1);
@@ -64,14 +83,14 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
 
       <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Precios de venta</p>
       <div className="card-glass rounded-2xl p-5 mb-5">
-        <Campo label="Sahumerio suelto" key_="sahumerio_venta" />
-        <Campo label="Pack x8" key_="pack8_venta" />
-        <Campo label="Difusor auto" key_="difusor_venta" />
+        <Campo label="Sahumerio suelto"  value={config.sahumerio_venta} onChange={v => update('sahumerio_venta', v)} />
+        <Campo label="Pack x8"           value={config.pack8_venta}     onChange={v => update('pack8_venta', v)} />
+        <Campo label="Difusor auto"      value={config.difusor_venta}   onChange={v => update('difusor_venta', v)} />
       </div>
 
       <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Mano de obra</p>
       <div className="card-glass rounded-2xl p-5 mb-5">
-        <Campo label="MO por sahumerio" key_="mo_sahumerio" />
+        <Campo label="MO por sahumerio" value={config.mo_sahumerio} onChange={v => update('mo_sahumerio', v)} />
         <div className="mb-4">
           <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">MO difusores</label>
           <div className="p-3 bg-noir-surface rounded-xl border border-noir-border">
@@ -83,18 +102,18 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
 
       <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Costo por producto</p>
       <div className="card-glass rounded-2xl p-5 mb-5">
-        <Campo label="Costo sahumerio (insumos + pkg + MO)" key_="sahumerio_costo" />
-        <Campo label="Costo difusor (insumos + packaging)" key_="difusor_costo" />
+        <Campo label="Costo sahumerio (insumos + pkg + MO)" value={config.sahumerio_costo} onChange={v => update('sahumerio_costo', v)} />
+        <Campo label="Costo difusor (insumos + packaging)"  value={config.difusor_costo}   onChange={v => update('difusor_costo', v)} />
       </div>
 
       <div className="card-glass rounded-2xl p-5 mb-6">
         <p className="text-noir-t3 text-[10px] tracking-[0.2em] font-medium uppercase mb-3">Márgenes calculados</p>
         {[
-          { l: 'Material sahumerio', v: formatARS(matSah) },
-          { l: 'MO sahumerio', v: formatARS(config.mo_sahumerio) },
-          { l: 'Margen minorista', v: `${margenMin}%` },
+          { l: 'Material sahumerio',   v: formatARS(matSah) },
+          { l: 'MO sahumerio',         v: formatARS(config.mo_sahumerio) },
+          { l: 'Margen minorista',     v: `${margenMin}%` },
           { l: 'Margen pack x8 (ud)', v: `${margenPack}%` },
-          { l: 'Margen difusor', v: `${margenDif}%` },
+          { l: 'Margen difusor',       v: `${margenDif}%` },
         ].map((r, i, arr) => (
           <div key={r.l}>
             <div className="flex justify-between text-[12px] py-2.5">
@@ -106,8 +125,11 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
         ))}
       </div>
 
-      <Button onClick={handleSave} disabled={saving}
-        className="w-full bg-gold hover:bg-gold-dim text-noir-bg font-semibold rounded-xl h-12 text-sm">
+      <Button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full bg-gold hover:bg-gold-dim text-alma-bg font-semibold rounded-xl h-12 text-sm"
+      >
         {saving ? 'Guardando...' : saved ? 'Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
       </Button>
     </div>
