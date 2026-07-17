@@ -10,7 +10,7 @@ import { ConfigView } from './ConfigView';
 import { HistorialView } from './HistorialView';
 import { StockView } from './StockView';
 import {
-  LayoutGrid, Plus, ShoppingCart, Wallet, SlidersHorizontal, Clock, Archive
+  LayoutGrid, Plus, ShoppingCart, Wallet, SlidersHorizontal, Clock, Archive, Wind,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -51,13 +51,18 @@ export function AlmaApp() {
   };
 
   return (
-    <div className="min-h-screen bg-noir-bg bg-texture">
+    <div className="min-h-screen bg-alma-bg bg-texture">
       {/* ── Desktop sidebar ── */}
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[220px] card-glass-deep border-r border-alma-border flex-col z-50">
         {/* Logo */}
         <div className="px-6 pt-8 pb-2">
-          <h1 className="text-gold font-black text-[13px] tracking-[0.25em] uppercase">Alma</h1>
-          <p className="text-noir-t3 text-[11px] mt-1 font-light">Aromas & Gestión</p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <div className="w-7 h-7 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center">
+              <Wind size={14} strokeWidth={1.5} className="text-gold" />
+            </div>
+            <h1 className="text-gold font-black text-[13px] tracking-[0.15em] uppercase">Con Alma</h1>
+          </div>
+          <p className="text-noir-t3 text-[11px] mt-1 font-light pl-9">Aromas</p>
         </div>
         <div className="sep-thin mx-5 my-3" />
         {/* Nav items */}
@@ -71,8 +76,8 @@ export function AlmaApp() {
                 onClick={() => setScreen(t.k)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] cursor-pointer transition-luxury border-none ${
                   active
-                    ? 'bg-gold-soft text-gold font-semibold'
-                    : 'text-noir-t2 hover:text-alma-t1 hover:bg-alma-hover'
+                    ? 'bg-gold/10 text-gold font-semibold shadow-sm'
+                    : 'text-noir-t2 hover:text-noir-t1 hover:bg-black/[0.04] bg-transparent'
                 }`}
               >
                 <Icon size={17} strokeWidth={active ? 2 : 1.5} />
@@ -84,7 +89,7 @@ export function AlmaApp() {
         {/* Footer */}
         <div className="px-5 pb-6">
           <div className="sep-thin mb-4" />
-          <p className="text-noir-t3 text-[10px] tracking-wider font-light">v2.0 · Alma Profunda</p>
+          <p className="text-noir-t3 text-[10px] tracking-wider font-light">Con Alma Aromas · v2</p>
         </div>
       </aside>
 
@@ -96,7 +101,7 @@ export function AlmaApp() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-0 left-0 right-0 lg:hidden frost border-t border-noir-border/50 z-50"
+            className="fixed bottom-0 left-0 right-0 lg:hidden frost border-t border-black/[0.06] z-50"
           >
             <div className="max-w-md mx-auto flex items-end justify-around px-2 pb-[env(safe-area-inset-bottom)]">
               {NAV.map((t) => {

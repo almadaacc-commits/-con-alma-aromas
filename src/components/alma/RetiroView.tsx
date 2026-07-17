@@ -57,7 +57,7 @@ export function RetiroView({ onBack }: { onBack: () => void }) {
         <p className="text-noir-t2 text-sm font-light mb-3">{quien}</p>
         <p className="text-4xl font-black text-gold-gradient tracking-[-0.03em]">{formatARS(montoNum)}</p>
         <div className="mt-8 w-full">
-          <Button onClick={() => { setDone(false); setMonto(''); }} className="w-full bg-gold hover:bg-gold-dim text-noir-bg font-semibold rounded-xl h-12 text-sm">
+          <Button onClick={() => { setDone(false); setMonto(''); }} className="w-full bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-12 text-sm">
             Volver
           </Button>
         </div>
@@ -137,7 +137,7 @@ export function RetiroView({ onBack }: { onBack: () => void }) {
       </div>
 
       <Button onClick={handleSubmit} disabled={!monto || !quien || !tipo || submitting}
-        className="w-full bg-gold hover:bg-gold-dim disabled:bg-noir-border disabled:text-noir-t3 text-noir-bg font-semibold rounded-xl h-12 text-sm">
+        className="w-full bg-gold hover:bg-gold-dim disabled:bg-noir-border disabled:text-noir-t3 text-white font-semibold rounded-xl h-12 text-sm">
         {submitting ? 'Registrando...' : 'Confirmar retiro'}
       </Button>
     </div>

@@ -14,8 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alma — Gestión",
-  description: "Panel de gestión",
+  title: "Con Alma Aromas",
+  description: "Gestión de ventas y producción",
+  manifest: "/manifest.json",
+  themeColor: "#C8A45C",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Con Alma",
+  },
 };
 
 export default function RootLayout({

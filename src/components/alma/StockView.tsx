@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { VARIANTES_SAH, VARIANTES_DIF } from './lib';
-import { Plus, Sparkles, CarFront, X, Trash2, TrendingUp, Package } from 'lucide-react';
+import { Plus, Sparkles, CarFront, X, TrendingUp, Package, Pencil, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-/* ─── Tipos ────────────────────────────────────────────── */
+/* ─── Tipos ─────────────────────────────────────────────── */
 interface VarianteSah {
   variante: string; producido: number; vendido: number;
   stock: number; vendidos30d: number;
@@ -33,13 +33,13 @@ interface FormProd {
   notas: string;
 }
 
-/* ─── Helpers UI ───────────────────────────────────────── */
+/* ─── Helpers UI ─────────────────────────────────────────── */
 function StockBadge({ n }: { n: number }) {
   const color = n <= 0 ? 'text-terra bg-terra/10 border-terra/20'
-              : n <= 5 ? 'text-gold  bg-gold/10  border-gold/20'
-              : 'text-sage  bg-sage/10  border-sage/20';
+              : n <= 5 ? 'text-gold bg-gold/10 border-gold/20'
+              : 'text-sage bg-sage/10 border-sage/20';
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${color}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[12px] font-bold border ${color}`}>
       {n}
     </span>
   );
@@ -47,7 +47,7 @@ function StockBadge({ n }: { n: number }) {
 
 function BarPct({ pct }: { pct: number }) {
   return (
-    <div className="h-1 rounded-full bg-noir-border overflow-hidden flex-1">
+    <div className="h-1.5 rounded-full bg-black/[0.06] overflow-hidden flex-1">
       <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="h-full rounded-full bg-gradient-to-r from-gold to-gold-dim" />
@@ -55,32 +55,44 @@ function BarPct({ pct }: { pct: number }) {
   );
 }
 
-/* ─── Componente principal ─────────────────────────────── */
+/* ─── Componente principal ──────────────────────────────── */
 export function StockView() {
-  const [data, setData]         = useState<StockData | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [distribN, setDistribN] = useState('100');
-  const [form, setForm]         = useState<FormProd>({
-    tipo: 'sah_sin_aroma', variante: '', cantidad: '', notas: '',
-  });
+  const [data, setData]             = useState<StockData | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [showForm, setShowForm]     = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [distribN, setDistribN]     = useState('100');
+  const [form, setForm]             = useState<FormProd>({ tipo: 'sah_sin_aroma', variante: '', cantidad: '', notas: '' });
+
+  // Estado para editar sahumerios sin aromatizar
+  const [editandoSinAroma, setEditandoSinAroma] = useState(false);
+  const [sinAromaInput, setSinAromaInput]       = useState('');
+  const [guardandoSinAroma, setGuardandoSinAroma] = useState(false);
+
+  // Estado para agregar stock de difusores
+  const [addDifusorModal, setAddDifusorModal] = useState<{ variante: string } | null>(null);
+  const [addDifusorCantidad, setAddDifusorCantidad] = useState('');
+  const [guardandoDifusor, setGuardandoDifusor] = useState(false);
 
   const fetchStock = () => {
     setLoading(true);
-    fetch('/api/stock').then(r => r.json()).then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+    fetch('/api/stock')
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
   };
 
   useEffect(() => { fetchStock(); }, []);
 
   const resetForm = () => setForm({ tipo: 'sah_sin_aroma', variante: '', cantidad: '', notas: '' });
+  const set = (k: keyof FormProd) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     const qty = parseInt(form.cantidad);
     if (!qty || qty <= 0) return;
     if (form.tipo !== 'sah_sin_aroma' && !form.variante) return;
     setSaving(true);
-    await fetch('/api/produccion', {
+    const res = await fetch('/api/produccion', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tipo: form.tipo,
@@ -88,20 +100,62 @@ export function StockView() {
         cantidad: qty,
         notas: form.notas || null,
       }),
-    }).catch(() => {});
+    }).catch(() => null);
     setSaving(false);
-    setShowForm(false);
-    resetForm();
+    if (res?.ok) {
+      setShowForm(false);
+      resetForm();
+      fetchStock();
+    }
+  };
+
+  const guardarSinAroma = async () => {
+    const n = parseInt(sinAromaInput);
+    if (!n || n < 0) return;
+    setGuardandoSinAroma(true);
+    // Registro una producción de sin aroma con la cantidad deseada neta
+    // Se calcula la diferencia respecto al stock actual para ajustar
+    const actual = data?.sahumerios.sinAromaDisponible ?? 0;
+    const diferencia = n - actual;
+    if (diferencia !== 0) {
+      await fetch('/api/produccion', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: diferencia > 0 ? 'sah_sin_aroma' : 'sah_aromatizado',
+          variante: null,
+          cantidad: Math.abs(diferencia),
+          notas: 'Ajuste manual de stock',
+        }),
+      }).catch(() => {});
+    }
+    setGuardandoSinAroma(false);
+    setEditandoSinAroma(false);
     fetchStock();
   };
 
-  const set = (k: keyof FormProd) => (v: string) => setForm(f => ({ ...f, [k]: v }));
+  const guardarStockDifusor = async () => {
+    if (!addDifusorModal) return;
+    const n = parseInt(addDifusorCantidad);
+    if (!n || n <= 0) return;
+    setGuardandoDifusor(true);
+    await fetch('/api/produccion', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'dif_entrada',
+        variante: addDifusorModal.variante,
+        cantidad: n,
+        notas: 'Incorporación manual de stock',
+      }),
+    }).catch(() => {});
+    setGuardandoDifusor(false);
+    setAddDifusorModal(null);
+    setAddDifusorCantidad('');
+    fetchStock();
+  };
 
   const tabClass = "flex-1 rounded-none border-b-[1.5px] border-transparent data-[state=active]:border-gold data-[state=active]:text-gold data-[state=active]:shadow-none text-noir-t3 pb-3 pt-1 text-[12px] font-medium tracking-wider uppercase bg-transparent transition-luxury";
-
   const variantesForm = form.tipo === 'dif_entrada' ? VARIANTES_DIF : VARIANTES_SAH;
 
-  // Distribución sugerida
   const N = parseInt(distribN) || 0;
   const distrib = data && N > 0
     ? data.sahumerios.recomendacion.map(r => ({ ...r, cantidad: Math.round(N * r.pct / 100) }))
@@ -113,7 +167,7 @@ export function StockView() {
     return (
       <div className="max-w-xl mx-auto px-5 pt-10 pb-24 lg:px-8">
         <div className="animate-pulse space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-noir-card rounded-2xl" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-black/[0.04] rounded-2xl" />)}
         </div>
       </div>
     );
@@ -127,7 +181,7 @@ export function StockView() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-4 pb-4 lg:pb-0"
-            style={{ background: 'rgba(13,31,23,0.85)', backdropFilter: 'blur(12px)' }}
+            style={{ background: 'rgba(245,240,232,0.88)', backdropFilter: 'blur(12px)' }}
             onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); resetForm(); } }}
           >
             <motion.div
@@ -143,7 +197,6 @@ export function StockView() {
                 </button>
               </div>
 
-              {/* Tipo */}
               <p className="text-noir-t3 text-[10px] tracking-[0.25em] uppercase mb-2">Tipo</p>
               <div className="space-y-1.5 mb-4">
                 {[
@@ -155,14 +208,13 @@ export function StockView() {
                     className={`w-full text-left px-3 py-2.5 rounded-xl text-[12px] border cursor-pointer transition-luxury ${
                       form.tipo === opt.v
                         ? 'bg-gold/8 border-gold/30 text-gold font-medium'
-                        : 'border-noir-border text-noir-t2 font-light'
+                        : 'border-black/[0.08] text-noir-t2 font-light bg-white/40'
                     }`}>
                     {opt.l}
                   </button>
                 ))}
               </div>
 
-              {/* Variante (no aplica para sin_aroma) */}
               {form.tipo !== 'sah_sin_aroma' && (
                 <>
                   <p className="text-noir-t3 text-[10px] tracking-[0.25em] uppercase mb-2">Fragancia / variante</p>
@@ -172,7 +224,7 @@ export function StockView() {
                         className={`py-2 px-2 rounded-lg text-[11px] border cursor-pointer transition-luxury text-center ${
                           form.variante === v
                             ? 'bg-gold/10 border-gold/30 text-gold font-medium'
-                            : 'border-noir-border text-noir-t2 font-light'
+                            : 'border-black/[0.08] text-noir-t2 font-light bg-white/40'
                         }`}>
                         {v}
                       </button>
@@ -181,28 +233,68 @@ export function StockView() {
                 </>
               )}
 
-              {/* Cantidad */}
               <p className="text-noir-t3 text-[10px] tracking-[0.25em] uppercase mb-2">Cantidad</p>
               <input
                 type="number"
                 value={form.cantidad}
                 onChange={e => set('cantidad')(e.target.value)}
                 placeholder="0"
-                className="w-full bg-noir-surface border border-noir-border rounded-xl h-11 px-4 text-[13px] text-noir-t1 placeholder:text-noir-t3/60 mb-4 outline-none focus:border-gold/30"
+                className="w-full bg-white/60 border border-black/[0.08] rounded-xl h-11 px-4 text-[13px] text-noir-t1 placeholder:text-noir-t3/60 mb-4 outline-none focus:border-gold/30"
               />
 
-              {/* Notas */}
               <input
                 type="text"
                 value={form.notas}
                 onChange={e => set('notas')(e.target.value)}
                 placeholder="Notas (opcional)"
-                className="w-full bg-noir-surface border border-noir-border rounded-xl h-11 px-4 text-[12px] text-noir-t1 placeholder:text-noir-t3/60 mb-5 outline-none focus:border-gold/30"
+                className="w-full bg-white/60 border border-black/[0.08] rounded-xl h-11 px-4 text-[12px] text-noir-t1 placeholder:text-noir-t3/60 mb-5 outline-none focus:border-gold/30"
               />
 
               <Button onClick={handleSave} disabled={saving}
-                className="w-full bg-gold hover:bg-gold-dim disabled:bg-noir-border disabled:text-noir-t3 text-alma-bg font-semibold rounded-xl h-11 text-sm">
+                className="w-full bg-gold hover:bg-gold-dim disabled:bg-black/10 disabled:text-noir-t3 text-white font-semibold rounded-xl h-11 text-sm">
                 {saving ? 'Guardando...' : 'Registrar'}
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Modal agregar stock difusor ── */}
+      <AnimatePresence>
+        {addDifusorModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-4 pb-4 lg:pb-0"
+            style={{ background: 'rgba(245,240,232,0.88)', backdropFilter: 'blur(12px)' }}
+            onClick={e => { if (e.target === e.currentTarget) { setAddDifusorModal(null); setAddDifusorCantidad(''); } }}
+          >
+            <motion.div
+              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="card-glass-raised rounded-2xl p-6 w-full max-w-xs"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-[13px] font-semibold text-noir-t1">Incorporar stock</p>
+                  <p className="text-[11px] text-noir-t3 font-light mt-0.5">{addDifusorModal.variante}</p>
+                </div>
+                <button onClick={() => { setAddDifusorModal(null); setAddDifusorCantidad(''); }}
+                  className="text-noir-t3 hover:text-noir-t1 transition-luxury bg-transparent border-none cursor-pointer">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-noir-t3 text-[10px] tracking-[0.25em] uppercase mb-2">Unidades a incorporar</p>
+              <input
+                type="number"
+                value={addDifusorCantidad}
+                onChange={e => setAddDifusorCantidad(e.target.value)}
+                placeholder="0"
+                autoFocus
+                className="w-full bg-white/60 border border-black/[0.08] rounded-xl h-12 px-4 text-[20px] font-black text-gold text-center placeholder:text-noir-t3/50 mb-4 outline-none focus:border-gold/40"
+              />
+              <Button onClick={guardarStockDifusor} disabled={guardandoDifusor || !addDifusorCantidad}
+                className="w-full bg-gold hover:bg-gold-dim disabled:bg-black/10 disabled:text-noir-t3 text-white font-semibold rounded-xl h-10 text-sm">
+                {guardandoDifusor ? 'Guardando...' : 'Agregar'}
               </Button>
             </motion.div>
           </motion.div>
@@ -215,7 +307,7 @@ export function StockView() {
           <h2 className="text-xl font-black text-noir-t1">Stock</h2>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-gold bg-gold/10 border border-gold/20 hover:border-gold/40 hover:bg-gold/15 cursor-pointer px-3 py-2 rounded-lg transition-luxury">
+            className="flex items-center gap-1.5 text-[11px] font-medium text-gold bg-gold/8 border border-gold/20 hover:border-gold/40 hover:bg-gold/12 cursor-pointer px-3 py-2 rounded-lg transition-luxury">
             <Plus size={13} /> Registrar producción
           </button>
         </div>
@@ -224,7 +316,7 @@ export function StockView() {
           <p className="text-noir-t3 text-sm text-center py-16">Sin datos</p>
         ) : (
           <Tabs defaultValue="sahumerios">
-            <TabsList className="w-full bg-transparent border-b border-noir-border rounded-none h-auto p-0 gap-0 mb-5">
+            <TabsList className="w-full bg-transparent border-b border-black/[0.08] rounded-none h-auto p-0 gap-0 mb-5">
               <TabsTrigger value="sahumerios" className={tabClass}>Sahumerios</TabsTrigger>
               <TabsTrigger value="difusores"  className={tabClass}>Difusores</TabsTrigger>
               <TabsTrigger value="sugerencia" className={tabClass}>Distribución</TabsTrigger>
@@ -232,31 +324,62 @@ export function StockView() {
 
             {/* ── TAB SAHUMERIOS ── */}
             <TabsContent value="sahumerios" className="mt-0 space-y-4">
-              {/* Sin aromatizar */}
+              {/* Sin aromatizar — editable */}
               <div className="card-glass-raised rounded-2xl p-4">
                 <div className="flex items-center gap-3 mb-1">
-                  <div className="w-9 h-9 rounded-xl bg-terra/10 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-terra/10 flex items-center justify-center shrink-0">
                     <Package size={16} strokeWidth={1.5} className="text-terra" />
                   </div>
                   <div className="flex-1">
                     <p className="text-[13px] font-semibold text-noir-t1">Sin aromatizar</p>
                     <p className="text-[10px] text-noir-t3 font-light">Base disponible para aromatizar</p>
                   </div>
-                  <StockBadge n={data.sahumerios.sinAromaDisponible} />
+                  {editandoSinAroma ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={sinAromaInput}
+                        onChange={e => setSinAromaInput(e.target.value)}
+                        autoFocus
+                        className="w-20 bg-white/70 border border-gold/30 rounded-lg h-9 px-2 text-[14px] font-black text-gold text-center outline-none focus:border-gold/60"
+                      />
+                      <button onClick={guardarSinAroma} disabled={guardandoSinAroma}
+                        className="w-9 h-9 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center text-gold cursor-pointer hover:bg-gold/20 transition-luxury disabled:opacity-50">
+                        <Check size={15} />
+                      </button>
+                      <button onClick={() => setEditandoSinAroma(false)}
+                        className="w-9 h-9 rounded-lg border border-black/[0.08] flex items-center justify-center text-noir-t3 cursor-pointer hover:text-noir-t1 transition-luxury bg-transparent">
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <StockBadge n={data.sahumerios.sinAromaDisponible} />
+                      <button
+                        onClick={() => { setSinAromaInput(String(data.sahumerios.sinAromaDisponible)); setEditandoSinAroma(true); }}
+                        className="w-8 h-8 rounded-lg border border-black/[0.08] flex items-center justify-center text-noir-t3 cursor-pointer hover:text-gold hover:border-gold/30 transition-luxury bg-transparent">
+                        <Pencil size={13} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-4 mt-3 pl-12">
+                <div className="flex gap-5 mt-3 pl-12">
                   <div>
-                    <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Producido</p>
-                    <p className="text-[12px] text-noir-t2 font-medium">{data.sahumerios.sinAromaProducido}</p>
+                    <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Producido total</p>
+                    <p className="text-[12px] text-noir-t2 font-semibold">{data.sahumerios.sinAromaProducido}</p>
                   </div>
                   <div>
                     <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Aromatizado</p>
-                    <p className="text-[12px] text-noir-t2 font-medium">{data.sahumerios.aromatizadoProducido}</p>
+                    <p className="text-[12px] text-noir-t2 font-semibold">{data.sahumerios.aromatizadoProducido}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Disponible</p>
+                    <p className="text-[12px] text-gold font-bold">{data.sahumerios.sinAromaDisponible}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Aromatizados por variante */}
+              {/* Por fragancia */}
               <p className="text-noir-t3 text-[10px] tracking-[0.25em] uppercase">Por fragancia</p>
               {data.sahumerios.variantes.length === 0 ? (
                 <p className="text-noir-t3 text-sm text-center py-8">
@@ -267,13 +390,13 @@ export function StockView() {
                   {data.sahumerios.variantes.map(v => (
                     <motion.div key={v.variante} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                       className="card-glass rounded-xl px-4 py-3 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gold/5 flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-gold/8 flex items-center justify-center shrink-0">
                         <Sparkles size={14} strokeWidth={1.5} className="text-gold/70" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] text-noir-t1 font-medium truncate">{v.variante}</p>
                         <p className="text-[10px] text-noir-t3 font-light mt-0.5">
-                          {v.vendidos30d} vendidos últimos 30d · {v.vendido} total
+                          {v.vendidos30d} vendidos 30d · {v.vendido} total
                         </p>
                       </div>
                       <StockBadge n={v.stock} />
@@ -284,34 +407,84 @@ export function StockView() {
             </TabsContent>
 
             {/* ── TAB DIFUSORES ── */}
-            <TabsContent value="difusores" className="mt-0 space-y-4">
+            <TabsContent value="difusores" className="mt-0 space-y-3">
+              {/* Botón agregar nueva variante */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => { setAddDifusorModal({ variante: VARIANTES_DIF[0] }); setAddDifusorCantidad(''); setForm(f => ({ ...f, tipo: 'dif_entrada' })); }}
+                  className="flex items-center gap-1.5 text-[11px] text-noir-t2 hover:text-gold border border-black/[0.08] hover:border-gold/30 px-3 py-1.5 rounded-lg cursor-pointer transition-luxury bg-transparent font-medium">
+                  <Plus size={12} /> Incorporar stock
+                </button>
+              </div>
+
               {data.difusores.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-14 h-14 rounded-2xl bg-gold/5 border border-gold/15 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gold/8 border border-gold/15 flex items-center justify-center mx-auto mb-4">
                     <CarFront size={22} strokeWidth={1.5} className="text-gold/60" />
                   </div>
                   <p className="text-noir-t2 font-medium text-sm mb-1">Sin stock cargado</p>
                   <p className="text-noir-t3 text-[12px] font-light">
-                    Registrá una "Entrada de difusores" para empezar a trackear stock
+                    Usá "Incorporar stock" para agregar difusores
                   </p>
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {data.difusores.map(v => (
-                    <div key={v.variante} className="card-glass rounded-xl px-4 py-3 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-sage/8 flex items-center justify-center shrink-0">
-                        <CarFront size={14} strokeWidth={1.5} className="text-sage" />
+                    <div key={v.variante} className="card-glass rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-sage/10 flex items-center justify-center shrink-0">
+                          <CarFront size={14} strokeWidth={1.5} className="text-sage" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] text-noir-t1 font-semibold">{v.variante}</p>
+                        </div>
+                        <StockBadge n={v.stock} />
+                        <button
+                          onClick={() => { setAddDifusorModal({ variante: v.variante }); setAddDifusorCantidad(''); }}
+                          className="flex items-center gap-1 text-[10px] font-medium text-gold bg-gold/8 border border-gold/20 hover:bg-gold/15 px-2.5 py-1.5 rounded-lg cursor-pointer transition-luxury">
+                          <Plus size={11} /> Stock
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-noir-t1 font-medium">{v.variante}</p>
-                        <p className="text-[10px] text-noir-t3 font-light mt-0.5">
-                          {v.vendidos30d} vendidos últimos 30d · {v.entradas} entradas · {v.vendido} total vendido
-                        </p>
+                      {/* Stats de la variante */}
+                      <div className="flex gap-4 pl-11">
+                        <div>
+                          <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Stock actual</p>
+                          <p className={`text-[12px] font-bold ${v.stock <= 0 ? 'text-terra' : v.stock <= 3 ? 'text-gold' : 'text-sage'}`}>{v.stock} u</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Vendidas total</p>
+                          <p className="text-[12px] font-semibold text-noir-t2">{v.vendido} u</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Últ. 30 días</p>
+                          <p className="text-[12px] font-semibold text-noir-t2">{v.vendidos30d} u</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-noir-t3 uppercase tracking-wider mb-0.5">Ingresadas</p>
+                          <p className="text-[12px] font-semibold text-noir-t2">{v.entradas} u</p>
+                        </div>
                       </div>
-                      <StockBadge n={v.stock} />
                     </div>
                   ))}
                 </div>
+              )}
+
+              {/* Si hay variantes de difusores sin stock, mostrar botones para agregar */}
+              {VARIANTES_DIF.filter(vd => !data.difusores.find(d => d.variante === vd)).length > 0 && (
+                <>
+                  <p className="text-noir-t3 text-[10px] tracking-[0.25em] uppercase mt-4 mb-2">Sin stock cargado</p>
+                  <div className="space-y-1.5">
+                    {VARIANTES_DIF.filter(vd => !data.difusores.find(d => d.variante === vd)).map(vd => (
+                      <button
+                        key={vd}
+                        onClick={() => { setAddDifusorModal({ variante: vd }); setAddDifusorCantidad(''); }}
+                        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[12px] border border-dashed border-black/[0.10] text-noir-t3 hover:text-gold hover:border-gold/30 transition-luxury bg-transparent cursor-pointer">
+                        <span>{vd}</span>
+                        <Plus size={14} className="text-noir-t3" />
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </TabsContent>
 
@@ -330,7 +503,7 @@ export function StockView() {
                     type="number"
                     value={distribN}
                     onChange={e => setDistribN(e.target.value)}
-                    className="w-28 bg-noir-surface border border-noir-border rounded-xl h-10 px-3 text-[14px] font-black text-gold text-center outline-none focus:border-gold/30"
+                    className="w-28 bg-white/60 border border-black/[0.08] rounded-xl h-10 px-3 text-[14px] font-black text-gold text-center outline-none focus:border-gold/30"
                     placeholder="100"
                   />
                   <span className="text-noir-t3 text-[12px] font-light">sahumerios</span>

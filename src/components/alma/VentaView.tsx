@@ -139,6 +139,7 @@ function VozOverlay({ onConfirmar, onCerrar }: VozOverlayProps) {
   const [resultado, setResultado]   = useState<{ items: ItemVoz[]; canal: string | null } | null>(null);
   const [soportado, setSoportado]   = useState(true);
   const recogRef = useRef<any>(null);
+  const transcriptRef = useRef('');
 
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -149,19 +150,27 @@ function VozOverlay({ onConfirmar, onCerrar }: VozOverlayProps) {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return;
     const r = new SR();
-    r.lang = 'es-AR'; r.continuous = false; r.interimResults = true;
-    r.onstart  = () => setEscuchando(true);
-    r.onend    = () => setEscuchando(false);
+    r.lang = 'es-AR'; r.continuous = true; r.interimResults = true;
+    r.onstart  = () => { setEscuchando(true); transcriptRef.current = ''; };
+    r.onend    = () => {
+      setEscuchando(false);
+      if (transcriptRef.current) setResultado(parsearVoz(transcriptRef.current));
+    };
     r.onresult = (e: any) => {
-      const txt = Array.from(e.results as any[]).map((x: any) => x[0].transcript).join('');
+      let final = ''; let interim = '';
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
+        else interim += e.results[i][0].transcript;
+      }
+      const txt = (final + interim).trim();
+      transcriptRef.current = (final).trim() || txt;
       setTranscript(txt);
-      if (e.results[e.results.length - 1].isFinal) setResultado(parsearVoz(txt));
     };
     recogRef.current = r;
     r.start();
   };
   const detener   = () => recogRef.current?.stop();
-  const reiniciar = () => { setTranscript(''); setResultado(null); };
+  const reiniciar = () => { setTranscript(''); setResultado(null); transcriptRef.current = ''; };
 
   const removeItem = (i: number) =>
     setResultado(r => r ? { ...r, items: r.items.filter((_, j) => j !== i) } : r);
@@ -170,7 +179,7 @@ function VozOverlay({ onConfirmar, onCerrar }: VozOverlayProps) {
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
-      style={{ background: 'rgba(13,31,23,0.96)', backdropFilter: 'blur(20px)' }}
+      style={{ background: 'rgba(245,240,232,0.96)', backdropFilter: 'blur(20px)' }}
     >
       <button onClick={onCerrar} className="absolute top-6 right-6 text-noir-t3 hover:text-noir-t1 transition-luxury bg-transparent border-none cursor-pointer">
         <X size={22} />
@@ -245,7 +254,7 @@ function VozOverlay({ onConfirmar, onCerrar }: VozOverlayProps) {
           <Button
             onClick={() => onConfirmar(resultado.items, resultado.canal)}
             disabled={resultado.items.length === 0 || resultado.items.every(i => !i.variante)}
-            className="w-full bg-gold hover:bg-gold-dim text-alma-bg font-semibold rounded-xl h-12 text-sm mb-2 disabled:bg-noir-border disabled:text-noir-t3"
+            className="w-full bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-12 text-sm mb-2 disabled:bg-noir-border disabled:text-noir-t3"
           >
             Agregar al carrito
           </Button>
@@ -281,6 +290,7 @@ export function VentaView({ onBack }: { onBack: () => void }) {
   const [tmpCantidad, setTmpCantidad] = useState(1);
 
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => { fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {}); }, []);
 
@@ -308,8 +318,9 @@ export function VentaView({ onBack }: { onBack: () => void }) {
   const handleSubmit = async () => {
     if (!cart.length || !canal) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
-      await Promise.all(cart.map(item => {
+      const results = await Promise.all(cart.map(item => {
         const total    = item.cantidad * item.precioU;
         const ganancia = total - item.cantidad * item.costoU;
         const moVenta  = item.cantidad * item.moU;
@@ -324,9 +335,12 @@ export function VentaView({ onBack }: { onBack: () => void }) {
           }),
         });
       }));
+      if (results.some(r => !r.ok)) throw new Error('server');
       refreshDashboard();
       setMode('success');
-    } catch { /* empty */ }
+    } catch {
+      setSubmitError('No se pudo guardar. Verificá tu conexión e intentá de nuevo.');
+    }
     setSubmitting(false);
   };
 
@@ -378,7 +392,7 @@ export function VentaView({ onBack }: { onBack: () => void }) {
             Nueva venta
           </Button>
           <Button onClick={() => { setCart([]); setCanal(null); onBack(); }}
-            className="flex-1 bg-gold hover:bg-gold-dim text-alma-bg font-semibold rounded-xl h-11 text-sm">
+            className="flex-1 bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-11 text-sm">
             Inicio
           </Button>
         </div>
@@ -402,7 +416,7 @@ export function VentaView({ onBack }: { onBack: () => void }) {
             initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="fixed inset-0 z-40 flex flex-col"
-            style={{ background: '#0D1F17' }}
+            style={{ background: '#FAF7F2' }}
           >
             <div className="max-w-md mx-auto w-full px-5 pt-8 pb-8 flex-1 overflow-y-auto">
               {/* Header */}
@@ -503,7 +517,7 @@ export function VentaView({ onBack }: { onBack: () => void }) {
                       </button>
                       <span className="text-5xl font-black text-gold-gradient tracking-[-0.04em] w-20 text-center tabular-nums">{tmpCantidad}</span>
                       <button onClick={() => setTmpCantidad(tmpCantidad + 1)}
-                        className="w-12 h-12 rounded-full bg-gold text-alma-bg flex items-center justify-center cursor-pointer hover:bg-gold-dim transition-luxury border-none">
+                        className="w-12 h-12 rounded-full bg-gold text-white flex items-center justify-center cursor-pointer hover:bg-gold-dim transition-luxury border-none">
                         <Plus size={18} strokeWidth={2.5} />
                       </button>
                     </div>
@@ -546,7 +560,7 @@ export function VentaView({ onBack }: { onBack: () => void }) {
                           setMode('cart');
                         }
                       }}
-                      className="w-full bg-gold hover:bg-gold-dim text-alma-bg font-semibold rounded-xl h-12 text-sm"
+                      className="w-full bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-12 text-sm"
                     >
                       Agregar al carrito
                     </Button>
@@ -667,8 +681,11 @@ export function VentaView({ onBack }: { onBack: () => void }) {
               ))}
             </div>
 
+            {submitError && (
+              <p className="text-terra text-[12px] text-center mb-3 font-light">{submitError}</p>
+            )}
             <Button onClick={handleSubmit} disabled={!canal || submitting}
-              className="w-full bg-gold hover:bg-gold-dim disabled:bg-noir-border disabled:text-noir-t3 text-alma-bg font-semibold rounded-xl h-12 text-sm">
+              className="w-full bg-gold hover:bg-gold-dim disabled:bg-noir-border disabled:text-noir-t3 text-white font-semibold rounded-xl h-12 text-sm">
               {submitting ? 'Registrando...' : `Registrar ${cart.length} producto${cart.length !== 1 ? 's' : ''}`}
             </Button>
           </motion.div>

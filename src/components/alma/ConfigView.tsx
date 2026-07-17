@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useAlmaStore } from './store';
 import { formatARS } from './lib';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -24,16 +23,28 @@ interface CampoProps {
 }
 
 function Campo({ label, value, onChange }: CampoProps) {
+  const [raw, setRaw] = useState(value === 0 ? '' : String(value));
+
+  useEffect(() => {
+    setRaw(value === 0 ? '' : String(value));
+  }, [value]);
+
   return (
     <div className="mb-4">
       <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">{label}</label>
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] text-noir-t3 font-medium">$</span>
-        <Input
+        <input
           type="number"
-          value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          className="pl-8 bg-noir-surface border-noir-border text-gold font-semibold rounded-xl h-11 text-[14px]"
+          value={raw}
+          onChange={e => {
+            setRaw(e.target.value);
+            onChange(e.target.value === '' ? 0 : Number(e.target.value));
+          }}
+          onBlur={() => {
+            if (raw === '' || raw === '-') { setRaw(''); onChange(0); }
+          }}
+          className="w-full pl-8 pr-3 bg-white/60 border border-black/[0.08] text-gold font-semibold rounded-xl h-11 text-[14px] outline-none focus:border-gold/40 focus:ring-1 focus:ring-gold/20 transition-luxury"
         />
       </div>
     </div>
@@ -45,6 +56,7 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
   const [config, setConfig] = useState<Config>(DEFAULTS);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {});
@@ -55,27 +67,38 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
 
   const handleSave = async () => {
     setSaving(true);
+    setError(false);
     try {
-      await fetch('/api/config', {
+      const res = await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
+      if (!res.ok) throw new Error('error');
       refreshDashboard();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch { /* empty */ }
+    } catch {
+      setError(true);
+      setTimeout(() => setError(false), 3000);
+    }
     setSaving(false);
   };
 
   const matSah = config.sahumerio_costo - config.mo_sahumerio;
-  const margenMin = ((config.sahumerio_venta - config.sahumerio_costo) / config.sahumerio_venta * 100).toFixed(1);
-  const margenPack = (((config.pack8_venta / 8) - config.sahumerio_costo) / (config.pack8_venta / 8) * 100).toFixed(1);
-  const margenDif = ((config.difusor_venta - config.difusor_costo) / config.difusor_venta * 100).toFixed(1);
+  const margenMin = config.sahumerio_venta > 0
+    ? ((config.sahumerio_venta - config.sahumerio_costo) / config.sahumerio_venta * 100).toFixed(1)
+    : '0.0';
+  const margenPack = config.pack8_venta > 0
+    ? (((config.pack8_venta / 8) - config.sahumerio_costo) / (config.pack8_venta / 8) * 100).toFixed(1)
+    : '0.0';
+  const margenDif = config.difusor_venta > 0
+    ? ((config.difusor_venta - config.difusor_costo) / config.difusor_venta * 100).toFixed(1)
+    : '0.0';
 
   return (
     <div className="max-w-md mx-auto px-5 pt-8 pb-28 lg:px-8 lg:pt-12">
-      <button onClick={onBack} className="text-noir-t3 text-[12px] mb-6 flex items-center gap-1.5 hover:text-noir-t2 transition-luxury font-light">
+      <button onClick={onBack} className="text-noir-t3 text-[12px] mb-6 flex items-center gap-1.5 hover:text-noir-t2 transition-luxury font-light bg-transparent border-none cursor-pointer">
         <ArrowLeft size={14} /> Volver
       </button>
       <h2 className="text-xl font-black text-noir-t1 mb-1">Ajustes</h2>
@@ -93,7 +116,7 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
         <Campo label="MO por sahumerio" value={config.mo_sahumerio} onChange={v => update('mo_sahumerio', v)} />
         <div className="mb-4">
           <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">MO difusores</label>
-          <div className="p-3 bg-noir-surface rounded-xl border border-noir-border">
+          <div className="p-3 bg-black/[0.03] rounded-xl border border-black/[0.06]">
             <span className="text-[13px] font-semibold text-noir-t3">$0</span>
             <span className="text-[11px] text-noir-t3 ml-2 font-light">Incluido en costo</span>
           </div>
@@ -128,9 +151,9 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
       <Button
         onClick={handleSave}
         disabled={saving}
-        className="w-full bg-gold hover:bg-gold-dim text-alma-bg font-semibold rounded-xl h-12 text-sm"
+        className="w-full bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-12 text-sm"
       >
-        {saving ? 'Guardando...' : saved ? 'Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
+        {saving ? 'Guardando...' : error ? 'Error al guardar' : saved ? 'Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
       </Button>
     </div>
   );
