@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -27,10 +29,21 @@ export async function GET() {
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
-    await db.produccion.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const id       = searchParams.get('id');
+    const variante = searchParams.get('variante');
+
+    if (id) {
+      await db.produccion.delete({ where: { id } });
+      return NextResponse.json({ success: true });
+    }
+
+    if (variante) {
+      // Borrar todos los registros de producción de esa variante
+      await db.produccion.deleteMany({ where: { variante } });
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: 'id o variante requerido' }, { status: 400 });
   } catch {
     return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 });
   }

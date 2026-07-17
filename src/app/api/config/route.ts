@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const DEFAULTS: Record<string, number> = {
   sahumerio_venta: 400,
   pack8_venta: 2800,

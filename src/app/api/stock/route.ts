@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const [ventas, producciones] = await Promise.all([
     db.venta.findMany({ select: { producto: true, variante: true, cantidad: true, createdAt: true } }),

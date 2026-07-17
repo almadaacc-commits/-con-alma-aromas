@@ -78,9 +78,12 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
         body: JSON.stringify(config),
       });
       if (!res.ok) throw new Error('error');
+      // Re-leer desde la DB para confirmar persistencia
+      const saved = await fetch('/api/config', { cache: 'no-store' }).then(r => r.json());
+      setConfig(saved);
       refreshDashboard();
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setSaved(false), 2500);
     } catch {
       setError(true);
       setTimeout(() => setError(false), 3000);
