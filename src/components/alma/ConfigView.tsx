@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAlmaStore } from './store';
 import { formatARS } from './lib';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface Config {
   sahumerio_venta: number; pack8_venta: number; difusor_venta: number;
@@ -57,6 +58,8 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const [resetStep, setResetStep] = useState<0 | 1 | 2>(0);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {});
@@ -86,6 +89,14 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
   };
 
   const matSah = config.sahumerio_costo - config.mo_sahumerio;
+  const handleReset = async () => {
+    setResetting(true);
+    await fetch('/api/reset', { method: 'DELETE' });
+    refreshDashboard();
+    setResetting(false);
+    setResetStep(0);
+  };
+
   const margenMin = config.sahumerio_venta > 0
     ? ((config.sahumerio_venta - config.sahumerio_costo) / config.sahumerio_venta * 100).toFixed(1)
     : '0.0';
@@ -97,6 +108,63 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
     : '0.0';
 
   return (
+    <>
+    {/* ── Modal confirmación reset ── */}
+    <AnimatePresence>
+      {resetStep > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center px-6"
+          style={{ background: 'rgba(245,240,232,0.92)', backdropFilter: 'blur(16px)' }}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="card-glass-raised rounded-2xl p-6 w-full max-w-xs text-center"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-terra/10 border border-terra/20 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={22} strokeWidth={1.5} className="text-terra" />
+            </div>
+            {resetStep === 1 ? (
+              <>
+                <p className="text-[15px] font-black text-noir-t1 mb-2">¿Borrar todo?</p>
+                <p className="text-[12px] text-noir-t3 font-light mb-5 leading-relaxed">
+                  Se van a eliminar todas las ventas, compras, retiros y movimientos de stock. Esta acción no se puede deshacer.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setResetStep(0)}
+                    className="flex-1 py-2.5 rounded-xl border border-black/[0.08] text-noir-t2 text-[12px] font-medium cursor-pointer bg-transparent hover:bg-black/[0.03] transition-luxury">
+                    Cancelar
+                  </button>
+                  <button onClick={() => setResetStep(2)}
+                    className="flex-1 py-2.5 rounded-xl bg-terra text-white text-[12px] font-semibold cursor-pointer hover:bg-terra-dim transition-luxury border-none">
+                    Sí, borrar todo
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[15px] font-black text-terra mb-2">Última confirmación</p>
+                <p className="text-[12px] text-noir-t3 font-light mb-5 leading-relaxed">
+                  Confirmá que querés borrar <strong className="text-noir-t1">todos los datos</strong> permanentemente.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setResetStep(0)}
+                    className="flex-1 py-2.5 rounded-xl border border-black/[0.08] text-noir-t2 text-[12px] font-medium cursor-pointer bg-transparent hover:bg-black/[0.03] transition-luxury">
+                    Cancelar
+                  </button>
+                  <button onClick={handleReset} disabled={resetting}
+                    className="flex-1 py-2.5 rounded-xl bg-terra text-white text-[12px] font-bold cursor-pointer hover:bg-terra-dim disabled:opacity-60 transition-luxury border-none">
+                    {resetting ? 'Borrando...' : 'Confirmar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
     <div className="max-w-md mx-auto px-5 pt-8 pb-28 lg:px-8 lg:pt-12">
       <button onClick={onBack} className="text-noir-t3 text-[12px] mb-6 flex items-center gap-1.5 hover:text-noir-t2 transition-luxury font-light bg-transparent border-none cursor-pointer">
         <ArrowLeft size={14} /> Volver
@@ -155,6 +223,22 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
       >
         {saving ? 'Guardando...' : error ? 'Error al guardar' : saved ? 'Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
       </Button>
+
+      {/* ── Zona de peligro ── */}
+      <div className="mt-8 pt-6 border-t border-black/[0.06]">
+        <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Zona de peligro</p>
+        <button
+          onClick={() => setResetStep(1)}
+          className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl border border-terra/25 text-terra hover:bg-terra/5 transition-luxury cursor-pointer bg-transparent"
+        >
+          <div className="text-left">
+            <p className="text-[13px] font-semibold">Borrar todos los datos</p>
+            <p className="text-[11px] text-terra/70 font-light mt-0.5">Ventas, compras, retiros y stock</p>
+          </div>
+          <Trash2 size={16} strokeWidth={1.5} />
+        </button>
+      </div>
     </div>
+    </>
   );
 }
