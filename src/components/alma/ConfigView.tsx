@@ -36,14 +36,18 @@ function Campo({ label, value, onChange }: CampoProps) {
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] text-noir-t3 font-medium">$</span>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={raw}
           onChange={e => {
-            setRaw(e.target.value);
-            onChange(e.target.value === '' ? 0 : Number(e.target.value));
+            const v = e.target.value.replace(/[^0-9]/g, '');
+            setRaw(v);
+            onChange(v === '' ? 0 : parseInt(v, 10));
           }}
           onBlur={() => {
-            if (raw === '' || raw === '-') { setRaw(''); onChange(0); }
+            if (!raw) { setRaw(''); onChange(0); }
+            else { const n = parseInt(raw, 10); if (!isNaN(n)) { setRaw(String(n)); onChange(n); } }
           }}
           className="w-full pl-8 pr-3 bg-white/60 border border-black/[0.08] text-gold font-semibold rounded-xl h-11 text-[14px] outline-none focus:border-gold/40 focus:ring-1 focus:ring-gold/20 transition-luxury"
         />
@@ -62,7 +66,8 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
   const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {});
+    fetch(`/api/config?t=${Date.now()}`, { cache: 'no-store' })
+      .then(r => r.json()).then(setConfig).catch(() => {});
   }, []);
 
   const update = (key: keyof Config, value: number) =>
@@ -77,10 +82,10 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
-      if (!res.ok) throw new Error('error');
-      // Re-leer desde la DB para confirmar persistencia
-      const saved = await fetch('/api/config', { cache: 'no-store' }).then(r => r.json());
-      setConfig(saved);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // PUT devuelve directamente los valores confirmados desde la DB
+      const confirmed: Config = await res.json();
+      setConfig(confirmed);
       refreshDashboard();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
