@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,12 +17,11 @@ export const metadata: Metadata = {
   title: "Con Alma Aromas",
   description: "Gestión de ventas y producción",
   manifest: "/manifest.json",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Con Alma" },
+};
+
+export const viewport: Viewport = {
   themeColor: "#C8A45C",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Con Alma",
-  },
 };
 
 export default function RootLayout({
