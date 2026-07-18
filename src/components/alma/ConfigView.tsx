@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAlmaStore } from './store';
 import { formatARS } from './lib';
@@ -17,19 +17,9 @@ const DEFAULTS: Config = {
   sahumerio_costo: 375, difusor_costo: 320, mo_sahumerio: 175, mo_difusor: 0,
 };
 
-interface CampoProps {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}
-
-function Campo({ label, value, onChange }: CampoProps) {
-  const [raw, setRaw] = useState(value === 0 ? '' : String(value));
-
-  useEffect(() => {
-    setRaw(value === 0 ? '' : String(value));
-  }, [value]);
-
+// Inputs no-controlados: cada vez que cambia `formKey` React re-monta el form
+// y los inputs muestran el nuevo `defaultValue`. Al guardar, leemos del DOM.
+function Campo({ label, name, defaultValue }: { label: string; name: string; defaultValue: number }) {
   return (
     <div className="mb-4">
       <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">{label}</label>
@@ -37,18 +27,11 @@ function Campo({ label, value, onChange }: CampoProps) {
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] text-noir-t3 font-medium">$</span>
         <input
           type="text"
+          name={name}
           inputMode="numeric"
           pattern="[0-9]*"
-          value={raw}
-          onChange={e => {
-            const v = e.target.value.replace(/[^0-9]/g, '');
-            setRaw(v);
-            onChange(v === '' ? 0 : parseInt(v, 10));
-          }}
-          onBlur={() => {
-            if (!raw) { setRaw(''); onChange(0); }
-            else { const n = parseInt(raw, 10); if (!isNaN(n)) { setRaw(String(n)); onChange(n); } }
-          }}
+          defaultValue={defaultValue === 0 ? '' : String(defaultValue)}
+          onChange={e => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); }}
           className="w-full pl-8 pr-3 bg-white/60 border border-black/[0.08] text-gold font-semibold rounded-xl h-11 text-[14px] outline-none focus:border-gold/40 focus:ring-1 focus:ring-gold/20 transition-luxury"
         />
       </div>
@@ -58,62 +41,80 @@ function Campo({ label, value, onChange }: CampoProps) {
 
 export function ConfigView({ onBack }: { onBack: () => void }) {
   const { refreshDashboard } = useAlmaStore();
-  const [config, setConfig] = useState<Config>(DEFAULTS);
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(false);
+  const [loaded, setLoaded] = useState<Config>(DEFAULTS);
+  const [formKey, setFormKey]   = useState(0);   // cambia → re-monta el form con nuevos defaultValues
+  const [saved,    setSaved]    = useState(false);
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
   const [resetStep, setResetStep] = useState<0 | 1 | 2>(0);
   const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     fetch(`/api/config?t=${Date.now()}`, { cache: 'no-store' })
-      .then(r => r.json()).then(setConfig).catch(() => {});
+      .then(r => r.json())
+      .then((data: Config) => {
+        setLoaded(data);
+        setFormKey(k => k + 1);
+      })
+      .catch(e => console.error('[Config] Load error:', e));
   }, []);
 
-  const update = (key: keyof Config, value: number) =>
-    setConfig(c => ({ ...c, [key]: value }));
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  const handleSave = async () => {
+    // Leer directamente del DOM — evita cualquier problema de estado de React
+    const fd = new FormData(e.currentTarget);
+    const body: Record<string, number> = {};
+    for (const [key, val] of fd.entries()) {
+      const n = parseInt(val as string, 10);
+      body[key] = isNaN(n) ? 0 : n;
+    }
+
     setSaving(true);
-    setError(false);
+    setError(null);
     try {
       const res = await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // PUT devuelve directamente los valores confirmados desde la DB
+
+      // PUT devuelve los valores confirmados desde la DB
       const confirmed: Config = await res.json();
-      setConfig(confirmed);
+      setLoaded(confirmed);
+      setFormKey(k => k + 1);   // re-montar campos con valores confirmados
       refreshDashboard();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
-      setError(true);
-      setTimeout(() => setError(false), 3000);
+    } catch (err) {
+      console.error('[Config] Save error:', err);
+      setError('No se pudo guardar. Intentá de nuevo.');
+      setTimeout(() => setError(null), 4000);
     }
     setSaving(false);
   };
 
-  const matSah = config.sahumerio_costo - config.mo_sahumerio;
   const handleReset = async () => {
     setResetting(true);
-    await fetch('/api/reset', { method: 'DELETE' });
-    refreshDashboard();
+    try {
+      await fetch('/api/reset', { method: 'DELETE' });
+      refreshDashboard();
+    } catch {}
     setResetting(false);
     setResetStep(0);
   };
 
-  const margenMin = config.sahumerio_venta > 0
-    ? ((config.sahumerio_venta - config.sahumerio_costo) / config.sahumerio_venta * 100).toFixed(1)
+  const margenMin = loaded.sahumerio_venta > 0
+    ? ((loaded.sahumerio_venta - loaded.sahumerio_costo) / loaded.sahumerio_venta * 100).toFixed(1)
     : '0.0';
-  const margenPack = config.pack8_venta > 0
-    ? (((config.pack8_venta / 8) - config.sahumerio_costo) / (config.pack8_venta / 8) * 100).toFixed(1)
+  const margenPack = loaded.pack8_venta > 0
+    ? (((loaded.pack8_venta / 8) - loaded.sahumerio_costo) / (loaded.pack8_venta / 8) * 100).toFixed(1)
     : '0.0';
-  const margenDif = config.difusor_venta > 0
-    ? ((config.difusor_venta - config.difusor_costo) / config.difusor_venta * 100).toFixed(1)
+  const margenDif = loaded.difusor_venta > 0
+    ? ((loaded.difusor_venta - loaded.difusor_costo) / loaded.difusor_venta * 100).toFixed(1)
     : '0.0';
+  const matSah = loaded.sahumerio_costo - loaded.mo_sahumerio;
 
   return (
     <>
@@ -180,57 +181,64 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
       <h2 className="text-xl font-black text-noir-t1 mb-1">Ajustes</h2>
       <p className="text-noir-t3 text-[12px] font-light mb-6">Precios y costos del negocio</p>
 
-      <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Precios de venta</p>
-      <div className="card-glass rounded-2xl p-5 mb-5">
-        <Campo label="Sahumerio suelto"  value={config.sahumerio_venta} onChange={v => update('sahumerio_venta', v)} />
-        <Campo label="Pack x8"           value={config.pack8_venta}     onChange={v => update('pack8_venta', v)} />
-        <Campo label="Difusor auto"      value={config.difusor_venta}   onChange={v => update('difusor_venta', v)} />
-      </div>
+      {/* key={formKey} re-monta el form cuando llegan datos nuevos */}
+      <form key={formKey} onSubmit={handleSubmit}>
+        <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Precios de venta</p>
+        <div className="card-glass rounded-2xl p-5 mb-5">
+          <Campo name="sahumerio_venta" label="Sahumerio suelto"  defaultValue={loaded.sahumerio_venta} />
+          <Campo name="pack8_venta"     label="Pack x8"           defaultValue={loaded.pack8_venta} />
+          <Campo name="difusor_venta"   label="Difusor auto"      defaultValue={loaded.difusor_venta} />
+        </div>
 
-      <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Mano de obra</p>
-      <div className="card-glass rounded-2xl p-5 mb-5">
-        <Campo label="MO por sahumerio" value={config.mo_sahumerio} onChange={v => update('mo_sahumerio', v)} />
-        <div className="mb-4">
-          <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">MO difusores</label>
-          <div className="p-3 bg-black/[0.03] rounded-xl border border-black/[0.06]">
-            <span className="text-[13px] font-semibold text-noir-t3">$0</span>
-            <span className="text-[11px] text-noir-t3 ml-2 font-light">Incluido en costo</span>
+        <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Mano de obra</p>
+        <div className="card-glass rounded-2xl p-5 mb-5">
+          <Campo name="mo_sahumerio" label="MO por sahumerio" defaultValue={loaded.mo_sahumerio} />
+          <div className="mb-4">
+            <label className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase block mb-2">MO difusores</label>
+            <div className="p-3 bg-black/[0.03] rounded-xl border border-black/[0.06]">
+              <span className="text-[13px] font-semibold text-noir-t3">$0</span>
+              <span className="text-[11px] text-noir-t3 ml-2 font-light">Incluido en costo</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Costo por producto</p>
-      <div className="card-glass rounded-2xl p-5 mb-5">
-        <Campo label="Costo sahumerio (insumos + pkg + MO)" value={config.sahumerio_costo} onChange={v => update('sahumerio_costo', v)} />
-        <Campo label="Costo difusor (insumos + packaging)"  value={config.difusor_costo}   onChange={v => update('difusor_costo', v)} />
-      </div>
+        <p className="text-noir-t3 text-[10px] tracking-[0.25em] font-medium uppercase mb-3">Costo por producto</p>
+        <div className="card-glass rounded-2xl p-5 mb-5">
+          <Campo name="sahumerio_costo" label="Costo sahumerio (insumos + pkg + MO)" defaultValue={loaded.sahumerio_costo} />
+          <Campo name="difusor_costo"   label="Costo difusor (insumos + packaging)"  defaultValue={loaded.difusor_costo} />
+        </div>
 
-      <div className="card-glass rounded-2xl p-5 mb-6">
-        <p className="text-noir-t3 text-[10px] tracking-[0.2em] font-medium uppercase mb-3">Márgenes calculados</p>
-        {[
-          { l: 'Material sahumerio',   v: formatARS(matSah) },
-          { l: 'MO sahumerio',         v: formatARS(config.mo_sahumerio) },
-          { l: 'Margen minorista',     v: `${margenMin}%` },
-          { l: 'Margen pack x8 (ud)', v: `${margenPack}%` },
-          { l: 'Margen difusor',       v: `${margenDif}%` },
-        ].map((r, i, arr) => (
-          <div key={r.l}>
-            <div className="flex justify-between text-[12px] py-2.5">
-              <span className="text-noir-t2 font-light">{r.l}</span>
-              <span className="font-semibold text-noir-t1">{r.v}</span>
+        <div className="card-glass rounded-2xl p-5 mb-6">
+          <p className="text-noir-t3 text-[10px] tracking-[0.2em] font-medium uppercase mb-3">Márgenes calculados</p>
+          {[
+            { l: 'Material sahumerio',   v: formatARS(matSah) },
+            { l: 'MO sahumerio',         v: formatARS(loaded.mo_sahumerio) },
+            { l: 'Margen minorista',     v: `${margenMin}%` },
+            { l: 'Margen pack x8 (ud)', v: `${margenPack}%` },
+            { l: 'Margen difusor',       v: `${margenDif}%` },
+          ].map((r, i, arr) => (
+            <div key={r.l}>
+              <div className="flex justify-between text-[12px] py-2.5">
+                <span className="text-noir-t2 font-light">{r.l}</span>
+                <span className="font-semibold text-noir-t1">{r.v}</span>
+              </div>
+              {i < arr.length - 1 && <div className="sep-thin" />}
             </div>
-            {i < arr.length - 1 && <div className="sep-thin" />}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <Button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-12 text-sm"
-      >
-        {saving ? 'Guardando...' : error ? 'Error al guardar' : saved ? 'Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
-      </Button>
+        {error && (
+          <p className="text-terra text-[12px] text-center mb-3 font-medium">{error}</p>
+        )}
+
+        <Button
+          type="submit"
+          disabled={saving}
+          className="w-full bg-gold hover:bg-gold-dim text-white font-semibold rounded-xl h-12 text-sm"
+        >
+          {saving ? 'Guardando...' : saved ? '✓ Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
+        </Button>
+      </form>
 
       {/* ── Zona de peligro ── */}
       <div className="mt-8 pt-6 border-t border-black/[0.06]">
