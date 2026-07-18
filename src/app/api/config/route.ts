@@ -4,11 +4,11 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const DEFAULTS: Record<string, number> = {
-  sahumerio_venta: 400,
-  pack8_venta: 2800,
-  difusor_venta: 1200,
-  sahumerio_costo: 375,
-  difusor_costo: 320,
+  sahumerio_venta: 500,
+  pack8_venta: 4000,
+  difusor_venta: 9000,
+  sahumerio_costo: 264,
+  difusor_costo: 2500,
   mo_sahumerio: 175,
   mo_difusor: 0,
 };

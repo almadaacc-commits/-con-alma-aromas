@@ -13,8 +13,8 @@ interface Config {
 }
 
 const DEFAULTS: Config = {
-  sahumerio_venta: 400, pack8_venta: 2800, difusor_venta: 1200,
-  sahumerio_costo: 375, difusor_costo: 320, mo_sahumerio: 175, mo_difusor: 0,
+  sahumerio_venta: 500, pack8_venta: 4000, difusor_venta: 9000,
+  sahumerio_costo: 264, difusor_costo: 2500, mo_sahumerio: 175, mo_difusor: 0,
 };
 
 // Inputs no-controlados: cada vez que cambia `formKey` React re-monta el form
@@ -46,6 +46,7 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
   const [saved,    setSaved]    = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState<string | null>(null);
+  const [dbConfirm, setDbConfirm] = useState<string | null>(null);
   const [resetStep, setResetStep] = useState<0 | 1 | 2>(0);
   const [resetting, setResetting] = useState(false);
 
@@ -84,6 +85,7 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
       const confirmed: Config = await res.json();
       setLoaded(confirmed);
       setFormKey(k => k + 1);   // re-montar campos con valores confirmados
+      setDbConfirm(`DB guardó → sah $${confirmed.sahumerio_venta} · pack $${confirmed.pack8_venta} · dif $${confirmed.difusor_venta}`);
       refreshDashboard();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -238,6 +240,10 @@ export function ConfigView({ onBack }: { onBack: () => void }) {
         >
           {saving ? 'Guardando...' : saved ? '✓ Guardado' : <><Save size={14} className="mr-2" />Guardar cambios</>}
         </Button>
+
+        {dbConfirm && (
+          <p className="text-center text-[10px] text-noir-t3 mt-2 font-mono">{dbConfirm}</p>
+        )}
       </form>
 
       {/* ── Zona de peligro ── */}
