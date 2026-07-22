@@ -248,16 +248,30 @@ export function StockView() {
   const handleEditStock = async (nuevoStock: number) => {
     if (!editModal) return;
     const { variante, vendido, tipoKey } = editModal;
-    // 1. Borrar todos los registros de producción para esa variante
-    await fetch(`/api/produccion?variante=${encodeURIComponent(variante)}`, { method: 'DELETE' }).catch(() => {});
-    // 2. Crear nuevo registro con la cantidad correcta (nuevoStock + vendido = total producido)
     const cantidadNecesaria = nuevoStock + vendido;
+
+    // 1. Borrar registros de ese tipo+variante (filtrar por tipo evita borrar datos de otras secciones)
+    const delRes = await fetch(
+      `/api/produccion?variante=${encodeURIComponent(variante)}&tipo=${encodeURIComponent(tipoKey)}`,
+      { method: 'DELETE' }
+    ).catch(() => null);
+    if (!delRes?.ok) {
+      console.error('[EditStock] DELETE falló', await delRes?.text().catch(() => ''));
+      return;
+    }
+
+    // 2. Crear registro ajustado: stock = cantidadNecesaria - vendido
     if (cantidadNecesaria > 0) {
-      await fetch('/api/produccion', {
+      const postRes = await fetch('/api/produccion', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tipo: tipoKey, variante, cantidad: cantidadNecesaria, notas: 'Ajuste manual de stock' }),
-      }).catch(() => {});
+      }).catch(() => null);
+      if (!postRes?.ok) {
+        console.error('[EditStock] POST falló', await postRes?.text().catch(() => ''));
+        return;
+      }
     }
+
     setEditModal(null);
     fetchStock();
   };

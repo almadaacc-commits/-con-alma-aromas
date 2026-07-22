@@ -38,8 +38,8 @@ export async function DELETE(req: Request) {
     }
 
     if (variante) {
-      // Borrar todos los registros de producción de esa variante
-      await db.produccion.deleteMany({ where: { variante } });
+      const tipo = searchParams.get('tipo') ?? undefined;
+      await db.produccion.deleteMany({ where: { variante, ...(tipo ? { tipo } : {}) } });
       return NextResponse.json({ success: true });
     }
 

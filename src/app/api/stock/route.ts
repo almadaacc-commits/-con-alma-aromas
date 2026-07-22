@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const [ventas, producciones] = await Promise.all([
     db.venta.findMany({ select: { producto: true, variante: true, cantidad: true, createdAt: true } }),
-    db.produccion.findMany(),
+    db.produccion.findMany({ orderBy: [{ variante: 'asc' }, { fecha: 'asc' }] }),
   ]);
 
   // ── Sahumerios ───────────────────────────────────────────
@@ -46,7 +46,11 @@ export async function GET() {
     vendido:    sahVentas[variante] ?? 0,
     stock:      (aroProd[variante] ?? 0) - (sahVentas[variante] ?? 0),
     vendidos30d: sahVentas30d[variante] ?? 0,
-  })).sort((a, b) => b.vendidos30d - a.vendidos30d);
+  })).sort((a, b) =>
+    b.vendidos30d !== a.vendidos30d
+      ? b.vendidos30d - a.vendidos30d
+      : a.variante.localeCompare(b.variante, 'es')
+  );
 
   // ── Recomendación de distribución ───────────────────────
   const totalVendidos30d = sahumerios.reduce((s, x) => s + x.vendidos30d, 0);
