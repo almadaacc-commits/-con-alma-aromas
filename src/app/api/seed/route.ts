@@ -25,14 +25,16 @@ export async function POST(req: Request) {
     await db.inventario.deleteMany({});
   }
 
-  // ── Config ────────────────────────────────────────────────
+  // ── Config ─────────────────────────────────────────────────────────────────
+  // Solo crea si no existe — nunca sobreescribe ajustes que el usuario ya guardó
   const configDefaults: Record<string, number> = {
-    sahumerio_venta: 400, pack8_venta: 2800, difusor_venta: 1200,
-    sahumerio_costo: 375, difusor_costo: 320, mo_sahumerio: 175, mo_difusor: 0,
+    sahumerio_venta: 500, pack8_venta: 4000, difusor_venta: 9000,
+    sahumerio_costo: 264, difusor_costo: 2500, mo_sahumerio: 175, mo_difusor: 0,
   };
-  for (const [key, value] of Object.entries(configDefaults)) {
-    await db.config.upsert({ where: { key }, update: { value }, create: { key, value } });
-  }
+  await db.config.createMany({
+    data: Object.entries(configDefaults).map(([key, value]) => ({ key, value })),
+    skipDuplicates: true,
+  });
 
   // ── Ventas junio 2025 ─────────────────────────────────────
   const ventasJunio: Array<{
